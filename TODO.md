@@ -5,14 +5,14 @@
 The FELICS compression algorithm relies heavily on the ability to write bit-level data: 
 
 - Encoding the range of a pixel P:
-    - It takes 1 bit to encode if P lies in the range $ \left[L, H\right] $
+    - It takes 1 bit to encode if P lies in the range $\left[L, H\right]$
     - If P lies outside the range, it takes another bit for the above-range/below-range decision
 
 - Encoding an in-range pixel value:
 
-    In-range values are almost uniform. Let $ \Delta $ be $ H - L $.
+    In-range values are almost uniform. Let $\Delta$ be $H - L$.
 
-    If $ \Delta + 1 $ is a power of two we simply use a binary code with $ \log_2(\Delta + 1) $	bits.
+    If $\Delta + 1$ is a power of two we simply use a binary code with $\log_2(\Delta + 1)$	bits.
 
     Otherwise, we can assign $\lfloor \log_2(\Delta + 1) \rfloor$	to some values and $\lceil \log_2(\Delta + 1) \rceil$ to others. This wikipedia article describes how to achieve this: [truncated binary encoding](https://en.wikipedia.org/wiki/Truncated_binary_encoding). 
 
