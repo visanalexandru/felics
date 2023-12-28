@@ -49,6 +49,12 @@ impl BitVector {
             position: 0,
         };
     }
+
+    /// Clears the `BitVector`, removing all bits.
+    pub fn clear(&mut self) {
+        self.data.clear();
+        self.len = 0;
+    }
 }
 
 /// Iterator over the `BitVector`
@@ -121,5 +127,20 @@ mod test {
 
         let contained: Vec<bool> = bitvector.iter().collect();
         assert_eq!(bits, contained);
+    }
+
+    #[test]
+    fn test_clear() {
+        let mut bitvector = BitVector::new();
+        let bits = vec![
+            true, true, false, true, true, true, false, false, true, false, true, true, false,
+            false, false, true, true, true, false, false,
+        ];
+        bits.iter().for_each(|x| bitvector.push(*x));
+        bitvector.clear();
+
+        assert_eq!(bitvector.len(), 0);
+        let contained: Vec<bool> = bitvector.iter().collect();
+        assert!(contained.is_empty());
     }
 }
