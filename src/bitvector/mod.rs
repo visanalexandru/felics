@@ -1,4 +1,4 @@
-use std::iter::Iterator;
+use std::fmt;
 const BITS_PER_BYTE: usize = 8;
 
 /// A data structure that supports storing individual bits.
@@ -54,6 +54,19 @@ impl BitVector {
     pub fn clear(&mut self) {
         self.data.clear();
         self.len = 0;
+    }
+}
+
+impl fmt::Display for BitVector {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        for bit in self.iter() {
+            if bit {
+                write!(f, "1")?;
+            } else {
+                write!(f, "0")?;
+            }
+        }
+        return Ok(());
     }
 }
 
@@ -142,5 +155,17 @@ mod test {
         assert_eq!(bitvector.len(), 0);
         let contained: Vec<bool> = bitvector.iter().collect();
         assert!(contained.is_empty());
+    }
+
+    #[test]
+    fn test_to_string() {
+        let mut bitvector = BitVector::new();
+        bitvector.push(true);
+        bitvector.push(false);
+        bitvector.push(false);
+        bitvector.push(true);
+        bitvector.push(false);
+        bitvector.push(false);
+        assert_eq!(bitvector.to_string(), "100100");
     }
 }
