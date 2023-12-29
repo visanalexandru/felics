@@ -1,2 +1,2 @@
 pub mod bitvector;
-pub mod encoding;
+pub mod coding;
