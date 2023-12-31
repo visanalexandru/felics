@@ -35,7 +35,7 @@ impl PhaseInCoder {
         }
     }
 
-    /// Appends the phase-in coding of a the range `[left, right]` to the given bitvector.
+    /// Appends the phase-in coding of a number in the range `[left, right]` to the given bitvector.
     pub fn encode(&self, bitvector: &mut BitVector, number: u32) {
         assert!(self.left <= number && number <= self.right);
         let to_encode = number - self.left;
