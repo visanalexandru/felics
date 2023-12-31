@@ -1,4 +1,5 @@
-use crate::bitvector::BitVector;
+use crate::bitvector::{self, BitVector};
+
 /// A struct that is used to encode and decode phase-in codes for the numbers in the `[left, right]` range.
 ///
 /// Phased-in codes are for symbols with equal probabilities.
@@ -33,6 +34,8 @@ impl PhaseInCoder {
             right_p: rpw - range_length,
         }
     }
+
+    /// Appends the phase-in coding of a the range `[left, right]` to the given bitvector.
     pub fn encode(&self, bitvector: &mut BitVector, number: u32) {
         assert!(self.left <= number && number <= self.right);
         let to_encode = number - self.left;
@@ -67,6 +70,36 @@ impl PhaseInCoder {
             }
             bitvector.push(if last_bit == 1 { true } else { false });
         }
+    }
+
+    /// Decodes the phase-in coding of a number in the range `[left, right]` by advancing the `BitVector` iterator.
+    ///
+    /// Returns `None` if the decoding process failed.
+    pub fn decode(&self, iter: &mut bitvector::Iter) -> Option<u32> {
+        // Read m bits.
+        let mut first_m = 0;
+        for bit in (0..self.m).rev() {
+            let mask = 1 << bit;
+            let is_toggled = iter.next()?;
+            if is_toggled {
+                first_m += mask;
+            }
+        }
+
+        if first_m < self.right_p {
+            return Some(self.left + first_m);
+        }
+
+        // It then must be a long codeword, get the corresponding pair.
+        let pair = first_m - self.right_p;
+        let mut number = pair * 2 + self.right_p;
+
+        // Then read the next bit to get the actual number.
+        let bit = iter.next()?;
+        if bit {
+            number += 1;
+        }
+        Some(self.left + number)
     }
 }
 
@@ -176,5 +209,38 @@ mod test {
                 "1010", "1011", "1100", "1101", "1110", "1111"
             ]
         );
+
+        assert_eq!(
+            get_phase_in_codes(0, 16),
+            vec![
+                "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001",
+                "1010", "1011", "1100", "1101", "1110", "11110", "11111"
+            ]
+        );
+
+        assert_eq!(
+            get_phase_in_codes(4210, 4226),
+            vec![
+                "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001",
+                "1010", "1011", "1100", "1101", "1110", "11110", "11111"
+            ]
+        );
+    }
+
+    #[test]
+    fn test_phase_in_decoding() {
+        let coder: PhaseInCoder = PhaseInCoder::new(24, 38);
+        let mut bitvec = BitVector::new();
+        coder.encode(&mut bitvec, 24);
+        coder.encode(&mut bitvec, 30);
+        coder.encode(&mut bitvec, 36);
+        coder.encode(&mut bitvec, 25);
+
+        let mut iter = bitvec.iter();
+        assert_eq!(coder.decode(&mut iter), Some(24));
+        assert_eq!(coder.decode(&mut iter), Some(30));
+        assert_eq!(coder.decode(&mut iter), Some(36));
+        assert_eq!(coder.decode(&mut iter), Some(25));
+        assert_eq!(coder.decode(&mut iter), None);
     }
 }
