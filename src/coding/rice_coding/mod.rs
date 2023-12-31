@@ -96,13 +96,11 @@ mod test {
         encode_rice(&mut bitvec, 10, 3);
 
         let mut iter = bitvec.iter();
-        let a = decode_rice(&mut iter, 4);
-        let b = decode_rice(&mut iter, 0);
-        let c = decode_rice(&mut iter, 3);
 
-        assert_eq!(a, Some(7));
-        assert_eq!(b, Some(12));
-        assert_eq!(c, Some(10));
+        assert_eq!(decode_rice(&mut iter, 4), Some(7));
+        assert_eq!(decode_rice(&mut iter, 0), Some(12));
+        assert_eq!(decode_rice(&mut iter, 3), Some(10));
+        assert_eq!(decode_rice(&mut iter, 0), None);
     }
 
     #[test]
