@@ -106,6 +106,7 @@ impl PhaseInCoder {
 #[cfg(test)]
 mod test {
     use crate::bitvector::BitVector;
+    use rand::seq::SliceRandom;
 
     use super::PhaseInCoder;
 
@@ -242,5 +243,31 @@ mod test {
         assert_eq!(coder.decode(&mut iter), Some(36));
         assert_eq!(coder.decode(&mut iter), Some(25));
         assert_eq!(coder.decode(&mut iter), None);
+    }
+
+    // Enumerate possible domains. For each domain `[left, right]`, shuffle the values in the domain
+    // and encode them using phase-in coding. Then, decode them and check if we get the same values.
+    #[test]
+    #[ignore]
+    fn test_phase_in_decoding_extensive() {
+        for left in 0..300 {
+            for right in left..300 {
+                let coder = PhaseInCoder::new(left, right);
+                let mut domain: Vec<u32> = (left..=right).collect();
+                domain.shuffle(&mut rand::thread_rng());
+                let mut bitvector = BitVector::new();
+
+                // Encode all the values in the domain.
+                for value in &domain {
+                    coder.encode(&mut bitvector, *value);
+                }
+
+                // Decode them an check if they are correct.
+                let mut iter = bitvector.iter();
+                for value in &domain {
+                    assert_eq!(coder.decode(&mut iter), Some(*value));
+                }
+            }
+        }
     }
 }
