@@ -16,7 +16,7 @@ pub struct PhaseInCoder {
 impl PhaseInCoder {
     /// Constructs a phase-in coder for the given range: `[0, n-1]`.
     pub fn new(n: u32) -> PhaseInCoder {
-        let m = n.checked_ilog2().expect("n must not be 0!");
+        let m = n.checked_ilog2().expect("n is 0!");
 
         // Compute neighbouring powers of two.
         let lpw: u32 = 1 << m;
@@ -99,10 +99,15 @@ impl PhaseInCoder {
 
 #[cfg(test)]
 mod test {
+    use super::PhaseInCoder;
     use crate::bitvector::BitVector;
     use rand::seq::SliceRandom;
 
-    use super::PhaseInCoder;
+    #[test]
+    #[should_panic]
+    fn test_zero_n_should_panic() {
+        PhaseInCoder::new(0);
+    }
 
     // Taken from the dummy chapter in the phase-in coding article.
     #[test]
