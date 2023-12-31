@@ -105,7 +105,7 @@ mod test {
 
     #[test]
     #[should_panic]
-    fn test_zero_n_should_panic() {
+    fn test_zero_n() {
         PhaseInCoder::new(0);
     }
 
@@ -129,6 +129,14 @@ mod test {
         assert_eq!(coder.m, 5);
         assert_eq!(coder.left_p, 0);
         assert_eq!(coder.right_p, 32);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_value_outside_range() {
+        let coder = PhaseInCoder::new(15);
+        let mut bitvec = BitVector::new();
+        coder.encode(&mut bitvec, 15);
     }
 
     // Utility function to compute the phase in codes of the set [0, n-1]
