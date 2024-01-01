@@ -1,4 +1,8 @@
-use crate::bitvector::{self, BitVector};
+use crate::{
+    bitvector::{self, BitVector},
+    coding::phase_in_coding::PhaseInCoder,
+    coding::rice_coding,
+};
 use image::{GenericImageView, GrayImage, Luma};
 use std::cmp;
 
@@ -6,8 +10,9 @@ use std::cmp;
 pub struct CompressedGrayscaleImage {
     width: u32,
     height: u32,
-    pixel1: Luma<u8>,
-    pixel2: Luma<u8>,
+    // The first two pixels in the image must be stored unencoded.
+    pixel1: u8,
+    pixel2: u8,
     data: BitVector,
 }
 
@@ -60,30 +65,42 @@ pub fn compress(image: GrayImage) -> Result<CompressedGrayscaleImage, Compressio
     let mut pixels = image.enumerate_pixels();
 
     let pixel1 = match pixels.next() {
-        Some((_, _, &luma)) => luma,
+        Some((_, _, &Luma([intensity]))) => intensity,
         None => return Err(CompressionError::ImageTooSmall),
     };
 
     let pixel2 = match pixels.next() {
-        Some((_, _, &luma)) => luma,
+        Some((_, _, &Luma([intensity]))) => intensity,
         None => return Err(CompressionError::ImageTooSmall),
     };
 
     let mut bitvec = BitVector::new();
-    for (x, y, Luma([p])) in pixels {
+
+    // Proceed in raster-scan order.
+    for (x, y, &Luma([p])) in pixels {
         let ((x1, y1), (x2, y2)) = nearest_neighbours((x, y), &image).unwrap();
-        let Luma([v1]) = image.get_pixel(x1, y1);
-        let Luma([v2]) = image.get_pixel(x2, y2);
+        let Luma([v1]) = *image.get_pixel(x1, y1);
+        let Luma([v2]) = *image.get_pixel(x2, y2);
 
         let h = cmp::max(v1, v2);
         let l = cmp::min(v1, v2);
+        let k = 2;
+        let context = h - l;
 
         if p >= l && p <= h {
             encode_intensity(&mut bitvec, PixelIntensity::InRange);
+            // Encode p-l in the range [0, context]
+            let to_encode = (p - l) as u32;
+            let encoder = PhaseInCoder::new(context as u32 + 1);
+            encoder.encode(&mut bitvec, to_encode);
         } else if p < l {
             encode_intensity(&mut bitvec, PixelIntensity::BelowRange);
+            let to_encode = (l - p - 1) as u32;
+            rice_coding::encode_rice(&mut bitvec, to_encode, k);
         } else {
             encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
+            let to_encode = (p - h - 1) as u32;
+            rice_coding::encode_rice(&mut bitvec, to_encode, k);
         }
     }
 
