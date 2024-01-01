@@ -1,43 +1,99 @@
+use crate::bitvector::{self, BitVector};
 use image::{GenericImageView, GrayImage, Luma};
+use std::cmp;
 
 /// A grayscale image that was compressed using the felics algorithm.
 pub struct CompressedGrayscaleImage {
     width: u32,
     height: u32,
-    // We need to store the first two pixels unencoded.
     pixel1: Luma<u8>,
     pixel2: Luma<u8>,
+    data: BitVector,
 }
 
-#[derive(Debug)]
+/// The possible intensity of a pixel relative to the context induced by its two
+/// nearest neighbours: `[L, H]`.
+#[derive(PartialEq, Debug)]
+enum PixelIntensity {
+    InRange,
+    BelowRange,
+    AboveRange,
+}
+
+/// Appends the encoded pixel intensity indicator to the given `BitVector`.
+fn encode_intensity(bitvec: &mut BitVector, intensity: PixelIntensity) {
+    match intensity {
+        PixelIntensity::InRange => bitvec.push(true),
+        PixelIntensity::AboveRange => {
+            bitvec.push(false);
+            bitvec.push(true)
+        }
+        PixelIntensity::BelowRange => {
+            bitvec.push(false);
+            bitvec.push(false)
+        }
+    }
+}
+
+/// Decodes a pixel intensity indicator by advancing the `BitVector` iterator.
+///
+/// Returns `None` if the decoding process failed.
+fn decode_intensity(iter: &mut bitvector::Iter) -> Option<PixelIntensity> {
+    let in_range = iter.next()?;
+    if in_range {
+        return Some(PixelIntensity::InRange);
+    }
+    let above = iter.next()?;
+    if above {
+        return Some(PixelIntensity::AboveRange);
+    }
+    Some(PixelIntensity::BelowRange)
+}
+
 /// Errors that may occur when compressing an image.
+#[derive(Debug)]
 pub enum CompressionError {
     ImageTooSmall,
 }
 
-impl TryFrom<GrayImage> for CompressedGrayscaleImage {
-    type Error = CompressionError;
+pub fn compress(image: GrayImage) -> Result<CompressedGrayscaleImage, CompressionError> {
+    let mut pixels = image.enumerate_pixels();
 
-    fn try_from(image: GrayImage) -> Result<Self, Self::Error> {
-        let mut pixels = image.enumerate_pixels();
+    let pixel1 = match pixels.next() {
+        Some((_, _, &luma)) => luma,
+        None => return Err(CompressionError::ImageTooSmall),
+    };
 
-        let pixel1 = match pixels.next() {
-            Some((_, _, &luma)) => luma,
-            None => return Err(CompressionError::ImageTooSmall),
-        };
+    let pixel2 = match pixels.next() {
+        Some((_, _, &luma)) => luma,
+        None => return Err(CompressionError::ImageTooSmall),
+    };
 
-        let pixel2 = match pixels.next() {
-            Some((_, _, &luma)) => luma,
-            None => return Err(CompressionError::ImageTooSmall),
-        };
+    let mut bitvec = BitVector::new();
+    for (x, y, Luma([p])) in pixels {
+        let ((x1, y1), (x2, y2)) = nearest_neighbours((x, y), &image).unwrap();
+        let Luma([v1]) = image.get_pixel(x1, y1);
+        let Luma([v2]) = image.get_pixel(x2, y2);
 
-        Ok(CompressedGrayscaleImage {
-            width: image.width(),
-            height: image.height(),
-            pixel1,
-            pixel2,
-        })
+        let h = cmp::max(v1, v2);
+        let l = cmp::min(v1, v2);
+
+        if p >= l && p <= h {
+            encode_intensity(&mut bitvec, PixelIntensity::InRange);
+        } else if p < l {
+            encode_intensity(&mut bitvec, PixelIntensity::BelowRange);
+        } else {
+            encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
+        }
     }
+
+    Ok(CompressedGrayscaleImage {
+        width: image.width(),
+        height: image.height(),
+        pixel1,
+        pixel2,
+        data: bitvec,
+    })
 }
 
 /// Returns the two nearest neighbours of a pixel in a given image, that have already been coded.
@@ -70,7 +126,8 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::nearest_neighbours;
+    use super::{encode_intensity, nearest_neighbours, PixelIntensity};
+    use crate::{bitvector::BitVector, compression::decode_intensity};
     use image::{GenericImageView, Luma};
 
     struct ImageMock {
@@ -132,5 +189,50 @@ mod test {
     fn test_nearest_neighbours_out_of_bounds() {
         let image = ImageMock::new(100, 80);
         nearest_neighbours((90, 80), &image);
+    }
+
+    #[test]
+    fn test_intensity_indicator_encoding() {
+        let mut bitvec = BitVector::new();
+        encode_intensity(&mut bitvec, PixelIntensity::InRange);
+        assert_eq!(bitvec.to_string(), "1");
+
+        let mut bitvec = BitVector::new();
+        encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
+        assert_eq!(bitvec.to_string(), "01");
+
+        let mut bitvec = BitVector::new();
+        encode_intensity(&mut bitvec, PixelIntensity::BelowRange);
+        assert_eq!(bitvec.to_string(), "00");
+    }
+
+    #[test]
+    fn test_intensity_indicator_decoding() {
+        let mut bitvec = BitVector::new();
+        encode_intensity(&mut bitvec, PixelIntensity::InRange);
+        encode_intensity(&mut bitvec, PixelIntensity::InRange);
+        encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
+        encode_intensity(&mut bitvec, PixelIntensity::BelowRange);
+        encode_intensity(&mut bitvec, PixelIntensity::InRange);
+        encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
+
+        let mut iter = bitvec.iter();
+
+        assert_eq!(decode_intensity(&mut iter), Some(PixelIntensity::InRange));
+        assert_eq!(decode_intensity(&mut iter), Some(PixelIntensity::InRange));
+        assert_eq!(
+            decode_intensity(&mut iter),
+            Some(PixelIntensity::AboveRange)
+        );
+        assert_eq!(
+            decode_intensity(&mut iter),
+            Some(PixelIntensity::BelowRange)
+        );
+        assert_eq!(decode_intensity(&mut iter), Some(PixelIntensity::InRange));
+        assert_eq!(
+            decode_intensity(&mut iter),
+            Some(PixelIntensity::AboveRange)
+        );
+        assert_eq!(decode_intensity(&mut iter), None);
     }
 }
