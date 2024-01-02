@@ -1,7 +1,7 @@
 use std::fmt;
 const BITS_PER_BYTE: usize = 8;
 
-/// A data structure that supports storing individual bits.
+/// A data structure that supports inserting individual bits and iterating over them.
 pub struct BitVector {
     data: Vec<u8>,
     len: usize,
@@ -54,6 +54,16 @@ impl BitVector {
     pub fn clear(&mut self) {
         self.data.clear();
         self.len = 0;
+    }
+
+    /// Returns the underlying raw buffer.
+    pub fn as_raw_bytes(&self) -> &Vec<u8> {
+        &self.data
+    }
+
+    /// Returns the underlying raw buffer.
+    pub fn into_raw_bytes(self) -> Vec<u8> {
+        self.data
     }
 }
 
