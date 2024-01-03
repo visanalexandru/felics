@@ -57,7 +57,7 @@ fn decode_intensity(iter: &mut bitvector::Iter) -> Option<PixelIntensity> {
     Some(PixelIntensity::BelowRange)
 }
 
-pub fn compress(image: GrayImage) -> Option<CompressedGrayscaleImage> {
+pub fn compress(image: &GrayImage) -> Option<CompressedGrayscaleImage> {
     let mut pixels = RasterScan::new(image.width(), image.height());
 
     let Luma([pixel1]) = match pixels.next() {
@@ -74,7 +74,7 @@ pub fn compress(image: GrayImage) -> Option<CompressedGrayscaleImage> {
 
     // Proceed in raster-scan order.
     for (x, y) in pixels {
-        let ((x1, y1), (x2, y2)) = misc::nearest_neighbours((x, y), &image).unwrap();
+        let ((x1, y1), (x2, y2)) = misc::nearest_neighbours((x, y), image).unwrap();
 
         let Luma([p]) = *image.get_pixel(x, y);
         let Luma([v1]) = *image.get_pixel(x1, y1);
@@ -112,7 +112,7 @@ pub fn compress(image: GrayImage) -> Option<CompressedGrayscaleImage> {
     })
 }
 
-pub fn decompress(compressed: CompressedGrayscaleImage) -> Option<GrayImage> {
+pub fn decompress(compressed: &CompressedGrayscaleImage) -> Option<GrayImage> {
     let mut image: image::ImageBuffer<Luma<u8>, Vec<u8>> =
         GrayImage::new(compressed.width, compressed.height);
 
@@ -170,8 +170,9 @@ pub fn decompress(compressed: CompressedGrayscaleImage) -> Option<GrayImage> {
 
 #[cfg(test)]
 mod test {
-    use super::{encode_intensity, PixelIntensity};
+    use super::{compress, decompress, encode_intensity, PixelIntensity};
     use crate::{bitvector::BitVector, compression::decode_intensity};
+    use image::{GrayImage, Luma};
 
     #[test]
     fn test_intensity_indicator_encoding() {
@@ -216,5 +217,47 @@ mod test {
             Some(PixelIntensity::AboveRange)
         );
         assert_eq!(decode_intensity(&mut iter), None);
+    }
+
+    #[test]
+    fn test_compression_invalid_dimensions() {
+        let image = GrayImage::new(1, 1);
+        assert!(compress(&image).is_none());
+    }
+
+    #[test]
+    fn test_compression_two_pixels() {
+        let mut image = GrayImage::new(1, 2);
+        image.put_pixel(0, 0, Luma([10]));
+        image.put_pixel(0, 1, Luma([3]));
+        let compressed = compress(&image).unwrap();
+        assert_eq!(compressed.pixel1, 10);
+        assert_eq!(compressed.pixel2, 3);
+        assert_eq!(compressed.data.len(), 0);
+
+        let mut image = GrayImage::new(2, 1);
+        image.put_pixel(0, 0, Luma([4]));
+        image.put_pixel(1, 0, Luma([42]));
+        let compressed = compress(&image).unwrap();
+        assert_eq!(compressed.pixel1, 4);
+        assert_eq!(compressed.pixel2, 42);
+        assert_eq!(compressed.data.len(), 0);
+    }
+
+    #[test]
+    fn test_compression_decompression() {
+        let mut image = GrayImage::new(240, 480);
+        for x in 0..240 {
+            for y in 0..480 {
+                let value = ((x ^ y) % 256) as u8;
+                image.put_pixel(x, y, Luma([value]));
+            }
+        }
+        let compressed = compress(&image).unwrap();
+        let decompressed = decompress(&compressed).unwrap();
+
+        assert_eq!(decompressed.width(), image.width());
+        assert_eq!(decompressed.height(), image.height());
+        assert_eq!(decompressed.as_raw(), image.as_raw());
     }
 }
