@@ -148,15 +148,19 @@ pub fn decompress(compressed: CompressedGrayscaleImage) -> Option<GrayImage> {
             PixelIntensity::InRange => {
                 let coder = PhaseInCoder::new(context as u32 + 1);
                 let p = coder.decode(&mut data_iter)?;
-                p as u8 + l
+                (p as u8).checked_add(l)?
             }
             PixelIntensity::BelowRange => {
-                let p = decode_rice(&mut data_iter, k)?;
-                l - (p as u8) - 1
+                let encoded = decode_rice(&mut data_iter, k)?;
+                // The encoded value is l-p-1.
+                // To get p back, we must compute: l-encoded-1.
+                l.checked_sub(encoded as u8)?.checked_sub(1)?
             }
             PixelIntensity::AboveRange => {
-                let p = decode_rice(&mut data_iter, k)?;
-                h + (p as u8) + 1
+                let encoded = decode_rice(&mut data_iter, k)?;
+                // The encoded value is p-h-1.
+                // To get p back, we must compute: encoded + h + 1.
+                (encoded as u8).checked_add(h)?.checked_add(1)?
             }
         };
         image.put_pixel(x, y, Luma([pixel_value]));
