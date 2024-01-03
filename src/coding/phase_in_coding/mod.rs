@@ -30,9 +30,27 @@ impl PhaseInCoder {
         }
     }
 
+    /// Rotates all numbers in the domain `[0, n-1] to the right p positions.
+    /// This is used so that values with shorter codewords end up
+    /// near the middle of the range.
+    ///
+    /// For example, coding of the values [0, 4] is: `00, 01, 10, 110, 111`.
+    /// If we rotate the values to the right p = 1 positions, we will
+    /// end up with: `111, 00, 01, 10, 110`
+    fn rotate_right(&self, number: u32) -> u32 {
+        (number + self.n - self.left_p) % self.n
+    }
+
+    /// Opposite of `rotate_right`.
+    fn rotate_left(&self, number: u32) -> u32 {
+        (number + self.left_p) % self.n
+    }
+
     /// Appends the phase-in coding of a number in the range `[0, n-1]` to the given bitvector.
     pub fn encode(&self, bitvector: &mut BitVector, number: u32) {
         assert!(number < self.n);
+
+        let number = self.rotate_right(number);
 
         // The first P integers: [0, P - 1] receive short codewords (m bits).
         if number < self.right_p {
@@ -81,7 +99,7 @@ impl PhaseInCoder {
         }
 
         if first_m < self.right_p {
-            return Some(first_m);
+            return Some(self.rotate_left(first_m));
         }
 
         // It then must be a long codeword, get the corresponding pair.
@@ -93,7 +111,8 @@ impl PhaseInCoder {
         if bit {
             number += 1;
         }
-        Some(number)
+
+        Some(self.rotate_left(number))
     }
 }
 
@@ -156,7 +175,7 @@ mod test {
     fn test_phase_in_encoding() {
         assert_eq!(
             get_phase_in_codes(7),
-            vec!["00", "010", "011", "100", "101", "110", "111"]
+            vec!["101", "110", "111", "00", "010", "011", "100"]
         );
 
         assert_eq!(
@@ -166,14 +185,14 @@ mod test {
 
         assert_eq!(
             get_phase_in_codes(9),
-            vec!["000", "001", "010", "011", "100", "101", "110", "1110", "1111"]
+            vec!["1111", "000", "001", "010", "011", "100", "101", "110", "1110"]
         );
 
         assert_eq!(
             get_phase_in_codes(15),
             vec![
-                "000", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001", "1010",
-                "1011", "1100", "1101", "1110", "1111"
+                "1001", "1010", "1011", "1100", "1101", "1110", "1111", "000", "0010", "0011",
+                "0100", "0101", "0110", "0111", "1000"
             ]
         );
 
@@ -188,8 +207,8 @@ mod test {
         assert_eq!(
             get_phase_in_codes(17),
             vec![
-                "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001",
-                "1010", "1011", "1100", "1101", "1110", "11110", "11111"
+                "11111", "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000",
+                "1001", "1010", "1011", "1100", "1101", "1110", "11110",
             ]
         );
     }
@@ -203,6 +222,9 @@ mod test {
         coder.encode(&mut bitvec, 12);
         coder.encode(&mut bitvec, 14);
         coder.encode(&mut bitvec, 1);
+        coder.encode(&mut bitvec, 7);
+        coder.encode(&mut bitvec, 5);
+        coder.encode(&mut bitvec, 3);
 
         let mut iter = bitvec.iter();
         assert_eq!(coder.decode(&mut iter), Some(0));
@@ -210,6 +232,9 @@ mod test {
         assert_eq!(coder.decode(&mut iter), Some(12));
         assert_eq!(coder.decode(&mut iter), Some(14));
         assert_eq!(coder.decode(&mut iter), Some(1));
+        assert_eq!(coder.decode(&mut iter), Some(7));
+        assert_eq!(coder.decode(&mut iter), Some(5));
+        assert_eq!(coder.decode(&mut iter), Some(3));
         assert_eq!(coder.decode(&mut iter), None);
     }
 
