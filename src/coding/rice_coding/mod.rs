@@ -1,9 +1,15 @@
 use crate::bitvector::{self, BitVector};
+
+/// Returns the length of the rice code of the given number
+pub fn rice_code_length(number: u32, k: u8) -> u32 {
+    (number >> k) + 1 + (k as u32)
+}
+
 /// Appends the rice encoded number to the given bitvector.
 ///
 /// For more information on rice coding, see: [Golumb Coding](https://en.wikipedia.org/wiki/Golomb_coding)
-pub fn encode_rice(bitvector: &mut BitVector, number: u32, k: u32) {
-    let m = 1u32.checked_shl(k).expect("k is too big!");
+pub fn encode_rice(bitvector: &mut BitVector, number: u32, k: u8) {
+    let m = 1u32.checked_shl(k as u32).expect("k is too big!");
 
     let mask_first_k = m - 1;
 
@@ -30,8 +36,8 @@ pub fn encode_rice(bitvector: &mut BitVector, number: u32, k: u32) {
 /// Decodes an encoded rice number by advancing the `BitVector` iterator.
 ///
 /// Returns `None` if the decoding process failed, caused by a truncated input.
-pub fn decode_rice(iter: &mut bitvector::Iter, k: u32) -> Option<u32> {
-    let m = 1u32.checked_shl(k).expect("k is too big!");
+pub fn decode_rice(iter: &mut bitvector::Iter, k: u8) -> Option<u32> {
+    let m = 1u32.checked_shl(k as u32).expect("k is too big!");
 
     let mut quotient: u32 = 0;
     // Loop to decode the unary quotient.
@@ -58,6 +64,8 @@ pub fn decode_rice(iter: &mut bitvector::Iter, k: u32) -> Option<u32> {
 
 #[cfg(test)]
 mod test {
+    use crate::coding::rice_coding::rice_code_length;
+
     use super::{decode_rice, encode_rice, BitVector};
     use rand::seq::SliceRandom;
     #[test]
@@ -123,5 +131,17 @@ mod test {
                 assert_eq!(decoded, Some(*number));
             }
         }
+    }
+
+    #[test]
+    fn test_rice_code_length() {
+        assert_eq!(rice_code_length(0, 0), 1);
+        assert_eq!(rice_code_length(1, 0), 2);
+        assert_eq!(rice_code_length(2, 0), 3);
+        assert_eq!(rice_code_length(17, 0), 18);
+        assert_eq!(rice_code_length(8, 3), 5);
+        assert_eq!(rice_code_length(10, 3), 5);
+        assert_eq!(rice_code_length(17, 3), 6);
+        assert_eq!(rice_code_length(17, 1), 10);
     }
 }
