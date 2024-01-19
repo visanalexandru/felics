@@ -1,5 +1,5 @@
 use std::fmt;
-const BITS_PER_BYTE: usize = 8;
+const BITS_PER_BYTE: usize = u8::BITS as usize;
 
 /// A data structure that supports inserting individual bits and iterating over them.
 pub struct BitVector {
