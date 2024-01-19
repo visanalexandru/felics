@@ -131,6 +131,12 @@ mod test {
     // Taken from the dummy chapter in the phase-in coding article.
     #[test]
     fn test_new_coder() {
+        let coder = PhaseInCoder::new(1);
+        assert_eq!(coder.n, 1);
+        assert_eq!(coder.m, 0);
+        assert_eq!(coder.left_p, 0);
+        assert_eq!(coder.right_p, 1);
+
         let coder = PhaseInCoder::new(7);
         assert_eq!(coder.n, 7);
         assert_eq!(coder.m, 2);
