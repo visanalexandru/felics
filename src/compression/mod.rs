@@ -1,7 +1,6 @@
 use crate::{
     bitvector::{self, BitVector},
-    coding::rice_coding,
-    coding::{phase_in_coding::PhaseInCoder, rice_coding::decode_rice},
+    coding::{phase_in_coding::PhaseInCoder, rice_coding::RiceCoder},
 };
 use image::{GrayImage, Luma};
 use std::cmp;
@@ -84,6 +83,7 @@ pub fn compress(image: &GrayImage) -> Option<CompressedGrayscaleImage> {
         let l = cmp::min(v1, v2);
         let k = 2;
         let context = h - l;
+        let rice_coder = RiceCoder::new(k);
 
         if p >= l && p <= h {
             encode_intensity(&mut bitvec, PixelIntensity::InRange);
@@ -94,11 +94,11 @@ pub fn compress(image: &GrayImage) -> Option<CompressedGrayscaleImage> {
         } else if p < l {
             encode_intensity(&mut bitvec, PixelIntensity::BelowRange);
             let to_encode = (l - p - 1) as u32;
-            rice_coding::encode_rice(&mut bitvec, to_encode, k);
+            rice_coder.encode_rice(&mut bitvec, to_encode);
         } else {
             encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
             let to_encode = (p - h - 1) as u32;
-            rice_coding::encode_rice(&mut bitvec, to_encode, k);
+            rice_coder.encode_rice(&mut bitvec, to_encode);
         }
     }
     println!("Took: {} bytes", bitvec.as_raw_bytes().len());
@@ -141,6 +141,7 @@ pub fn decompress(compressed: &CompressedGrayscaleImage) -> Option<GrayImage> {
         let l = cmp::min(v1, v2);
         let k = 2;
         let context = h - l;
+        let rice_coder = RiceCoder::new(k);
 
         let intensity = decode_intensity(&mut data_iter)?;
 
@@ -151,13 +152,13 @@ pub fn decompress(compressed: &CompressedGrayscaleImage) -> Option<GrayImage> {
                 (p as u8).checked_add(l)?
             }
             PixelIntensity::BelowRange => {
-                let encoded = decode_rice(&mut data_iter, k)?;
+                let encoded = rice_coder.decode_rice(&mut data_iter)?;
                 // The encoded value is l-p-1.
                 // To get p back, we must compute: l-encoded-1.
                 l.checked_sub(encoded as u8)?.checked_sub(1)?
             }
             PixelIntensity::AboveRange => {
-                let encoded = decode_rice(&mut data_iter, k)?;
+                let encoded = rice_coder.decode_rice(&mut data_iter)?;
                 // The encoded value is p-h-1.
                 // To get p back, we must compute: encoded + h + 1.
                 (encoded as u8).checked_add(h)?.checked_add(1)?
