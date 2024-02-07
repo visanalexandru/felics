@@ -1,10 +1,5 @@
 use crate::bitvector::{self, BitVector};
 
-/// Returns the length of the rice code of the given number
-pub fn rice_code_length(number: u32, k: u8) -> u32 {
-    (number >> k) + 1 + (k as u32)
-}
-
 /// A struct that is used to encode numbers using rice coding.
 ///
 /// For more information on rice coding, see: [Golumb Coding](https://en.wikipedia.org/wiki/Golomb_coding)
@@ -69,12 +64,17 @@ impl RiceCoder {
         let result = quotient.checked_mul(self.m).unwrap() + remainder;
         Some(result)
     }
+
+    /// Returns the length of the rice code of the given number
+    /// The method doesn't actually encode the number to count the bitsize,
+    /// so it's fast.
+    pub fn code_length(&self, number: u32) -> u32 {
+        return (number >> self.k) + 1 + (self.k as u32);
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use crate::coding::rice_coding::rice_code_length;
-
     use super::{BitVector, RiceCoder};
     use rand::seq::SliceRandom;
     #[test]
@@ -145,15 +145,18 @@ mod test {
         }
     }
 
+    // Encode some numbers using multiple k values and check
+    // if the length of the encoding matches the fast
+    // code length method.
     #[test]
     fn test_rice_code_length() {
-        assert_eq!(rice_code_length(0, 0), 1);
-        assert_eq!(rice_code_length(1, 0), 2);
-        assert_eq!(rice_code_length(2, 0), 3);
-        assert_eq!(rice_code_length(17, 0), 18);
-        assert_eq!(rice_code_length(8, 3), 5);
-        assert_eq!(rice_code_length(10, 3), 5);
-        assert_eq!(rice_code_length(17, 3), 6);
-        assert_eq!(rice_code_length(17, 1), 10);
+        for number in 0..3000 {
+            for k in 0..32 {
+                let coder = RiceCoder::new(k);
+                let mut bitvec = BitVector::new();
+                coder.encode_rice(&mut bitvec, number);
+                assert_eq!(bitvec.len(), coder.code_length(number) as usize);
+            }
+        }
     }
 }
