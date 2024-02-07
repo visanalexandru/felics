@@ -174,6 +174,7 @@ mod test {
     use super::{compress, decompress, encode_intensity, PixelIntensity};
     use crate::{bitvector::BitVector, compression::decode_intensity};
     use image::{GrayImage, Luma};
+    use rand::{self, rngs::ThreadRng, Rng};
 
     #[test]
     fn test_intensity_indicator_encoding() {
@@ -260,5 +261,38 @@ mod test {
         assert_eq!(decompressed.width(), image.width());
         assert_eq!(decompressed.height(), image.height());
         assert_eq!(decompressed.as_raw(), image.as_raw());
+    }
+
+    // Returns a random image with the given dimensions.
+    fn random_image(width: u32, height: u32, rng: &mut ThreadRng) -> GrayImage {
+        let mut image = GrayImage::new(width, height);
+        for y in 0..height {
+            for x in 0..width {
+                let pixel_intensity: u8 = rng.gen();
+                image.put_pixel(x, y, Luma([pixel_intensity]));
+            }
+        }
+        image
+    }
+
+    /// Generate a bunch of random images.
+    /// Check that for each image, Decompress(Compress(image)) = image
+    #[test]
+    #[ignore]
+    fn test_compression_decompression_intensive() {
+        let num_images = 100;
+        let mut rng = rand::thread_rng();
+
+        for _ in 0..num_images {
+            let width: u32 = rng.gen_range(1..400);
+            let height: u32 = rng.gen_range(1..400);
+
+            let image = random_image(width, height, &mut rng);
+
+            let compressed = compress(&image).unwrap();
+            let decompressed = decompress(&compressed).unwrap();
+
+            assert_eq!(image.as_raw(), decompressed.as_raw());
+        }
     }
 }
