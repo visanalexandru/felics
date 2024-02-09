@@ -3,9 +3,12 @@ use crate::{
     coding::{phase_in_coding::PhaseInCoder, rice_coding::RiceCoder},
 };
 use image::{GrayImage, Luma};
-use std::cmp;
-mod misc;
 use misc::RasterScan;
+use parameter_selection::KEstimator;
+use std::cmp;
+
+mod misc;
+mod parameter_selection;
 
 /// A grayscale image that was compressed using the felics algorithm.
 pub struct CompressedGrayscaleImage {
@@ -70,6 +73,7 @@ pub fn compress(image: &GrayImage) -> Option<CompressedGrayscaleImage> {
     };
 
     let mut bitvec = BitVector::new();
+    let mut estimator = KEstimator::new(vec![0, 1, 2, 3, 4, 5]);
 
     // Proceed in raster-scan order.
     for (x, y) in pixels {
@@ -81,8 +85,8 @@ pub fn compress(image: &GrayImage) -> Option<CompressedGrayscaleImage> {
 
         let h = cmp::max(v1, v2);
         let l = cmp::min(v1, v2);
-        let k = 2;
         let context = h - l;
+        let k = estimator.get_k(context);
         let rice_coder = RiceCoder::new(k);
 
         if p >= l && p <= h {
@@ -95,10 +99,12 @@ pub fn compress(image: &GrayImage) -> Option<CompressedGrayscaleImage> {
             encode_intensity(&mut bitvec, PixelIntensity::BelowRange);
             let to_encode = (l - p - 1) as u32;
             rice_coder.encode_rice(&mut bitvec, to_encode);
+            estimator.update(context, to_encode);
         } else {
             encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
             let to_encode = (p - h - 1) as u32;
             rice_coder.encode_rice(&mut bitvec, to_encode);
+            estimator.update(context, to_encode);
         }
     }
     println!("Took: {} bytes", bitvec.as_raw_bytes().len());
@@ -129,6 +135,7 @@ pub fn decompress(compressed: &CompressedGrayscaleImage) -> Option<GrayImage> {
     };
 
     let mut data_iter = compressed.data.iter();
+    let mut estimator = KEstimator::new(vec![0, 1, 2, 3, 4, 5]);
 
     // Proceed in raster-scan order.
     for (x, y) in pixels {
@@ -139,8 +146,8 @@ pub fn decompress(compressed: &CompressedGrayscaleImage) -> Option<GrayImage> {
 
         let h = cmp::max(v1, v2);
         let l = cmp::min(v1, v2);
-        let k = 2;
         let context = h - l;
+        let k = estimator.get_k(context);
         let rice_coder = RiceCoder::new(k);
 
         let intensity = decode_intensity(&mut data_iter)?;
@@ -153,12 +160,14 @@ pub fn decompress(compressed: &CompressedGrayscaleImage) -> Option<GrayImage> {
             }
             PixelIntensity::BelowRange => {
                 let encoded = rice_coder.decode_rice(&mut data_iter)?;
+                estimator.update(context, encoded);
                 // The encoded value is l-p-1.
                 // To get p back, we must compute: l-encoded-1.
                 l.checked_sub(encoded as u8)?.checked_sub(1)?
             }
             PixelIntensity::AboveRange => {
                 let encoded = rice_coder.decode_rice(&mut data_iter)?;
+                estimator.update(context, encoded);
                 // The encoded value is p-h-1.
                 // To get p back, we must compute: encoded + h + 1.
                 (encoded as u8).checked_add(h)?.checked_add(1)?
