@@ -20,6 +20,13 @@ pub struct CompressedGrayscaleImage {
     data: BitVector,
 }
 
+impl CompressedGrayscaleImage {
+    /// Returns the size of the compressed image, in bytes.
+    pub fn size(&self) -> usize {
+        return self.data.as_raw_bytes().len();
+    }
+}
+
 /// The possible intensity of a pixel relative to the context induced by its two
 /// nearest neighbours: `[L, H]`.
 #[derive(PartialEq, Debug)]
@@ -127,7 +134,6 @@ pub fn compress(image: &GrayImage) -> CompressedGrayscaleImage {
             estimator.update(context, to_encode);
         }
     }
-    println!("Took: {} bytes", bitvec.as_raw_bytes().len());
 
     CompressedGrayscaleImage {
         width: image.width(),
