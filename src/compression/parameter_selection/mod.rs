@@ -135,4 +135,41 @@ mod test {
         estimator.update(context, 300);
         assert_eq!(estimator.get_k(context), 16);
     }
+
+    #[test]
+    #[should_panic]
+    fn test_estimator_no_k_values() {
+        KEstimator::new(vec![], false);
+    }
+
+    #[test]
+    fn test_estimator_periodic_count_scaling() {
+        let mut estimator = KEstimator::new(vec![0, 1, 2], true);
+        let context = 43;
+
+        estimator.update(context, 400);
+        //  k:      0    1     2
+        //  len:   401  202   103
+        //  total: 401  202   103
+
+        estimator.update(context, 531);
+        //  k:    0    1     2
+        //  len: 532  267   135
+        //  total: 933 469  238
+
+        estimator.update(context, 2000);
+        //  k:      0     1     2
+        //  len:   2001  1002 503
+        //  total: 2934  1471 741
+
+        estimator.update(context, 1733);
+        //  k:      0     1     2
+        //  len:   1734  868   436
+        //  total: 4668 2339  1177 (before scaling)
+
+        let ks = &estimator.context_map[context as usize];
+        assert_eq!(ks[0], 2334);
+        assert_eq!(ks[1], 1169);
+        assert_eq!(ks[2], 588);
+    }
 }
