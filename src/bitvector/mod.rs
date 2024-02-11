@@ -26,6 +26,7 @@ impl BitVector {
         self.len
     }
 
+    /// Returns `true` if the `BitVector` contains no bits.
     pub fn is_empty(&self) -> bool {
         self.len == 0
     }
