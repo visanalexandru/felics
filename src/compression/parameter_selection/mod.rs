@@ -1,6 +1,7 @@
 use crate::coding::rice_coding::RiceCoder;
 
 const MAX_CONTEXT: usize = u8::MAX as usize;
+const HALVE_AT: u32 = 1024;
 
 /// This struct is used to estimate the optimal Rice parameter
 /// value k from a given list of reasonable parameters for k.
@@ -11,14 +12,23 @@ pub struct KEstimator {
     // if we had used parameter k to encode all values encountered
     // so far in the context C.
     context_map: Vec<Vec<u32>>,
+    periodic_count_scaling: bool,
 }
 
 impl KEstimator {
     /// Creates a new KEstimator for the given set
     /// of k parameters.
-    pub fn new(reasonable_ks: Vec<u8>) -> KEstimator {
-        let mut context_map = Vec::new();
+    /// If `periodic_count_scaling` is set to `true`, try
+    /// to exploit locality of reference within the image.
+    ///
+    /// # Panics
+    /// Panics if the list of reasonable k values is empty.
+    pub fn new(reasonable_ks: Vec<u8>, periodic_count_scaling: bool) -> KEstimator {
+        if reasonable_ks.is_empty() {
+            panic!("The list of k values is empty!");
+        }
 
+        let mut context_map = Vec::new();
         for _context in 0..=MAX_CONTEXT {
             let k = vec![0; reasonable_ks.len()];
             context_map.push(k);
@@ -27,17 +37,28 @@ impl KEstimator {
         return KEstimator {
             reasonable_ks,
             context_map,
+            periodic_count_scaling,
         };
     }
 
     /// Updates the cumulative totals for this context
     /// to reflect that we have encoded a new value.
+    /// If `periodic_count_scaling` is set to `true`, halve
+    /// all code lengths in the context when the smallest one reaches
+    /// a certain threshold.
     pub fn update(&mut self, context: u8, encoded: u32) {
         let ks_for_context = &mut self.context_map[context as usize];
 
         for (ki, &k) in self.reasonable_ks.iter().enumerate() {
             let code_length = RiceCoder::new(k).code_length(encoded);
             ks_for_context[ki] += code_length;
+        }
+
+        if self.periodic_count_scaling {
+            let min_value = ks_for_context.iter().min().unwrap();
+            if *min_value > HALVE_AT {
+                ks_for_context.iter_mut().for_each(|x| *x /= 2);
+            }
         }
     }
 
@@ -65,7 +86,7 @@ mod test {
     #[test]
     fn test_estimator_context_map() {
         let k_values = vec![0, 1, 2, 4, 8, 16];
-        let mut estimator = KEstimator::new(k_values.clone());
+        let mut estimator = KEstimator::new(k_values.clone(), false);
 
         let mut add_to_context: HashMap<u8, Vec<u32>> = HashMap::new();
 
@@ -96,7 +117,7 @@ mod test {
     #[test]
     fn test_estimator_get_k() {
         let k_values = vec![0, 1, 2, 4, 5, 16];
-        let mut estimator = KEstimator::new(k_values.clone());
+        let mut estimator = KEstimator::new(k_values.clone(), false);
 
         let context = 100;
 

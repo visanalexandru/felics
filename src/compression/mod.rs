@@ -100,7 +100,7 @@ pub fn compress(image: &GrayImage) -> CompressedGrayscaleImage {
     let Luma([pixel2]) = *image.get_pixel(x, y);
 
     let mut bitvec = BitVector::new();
-    let mut estimator = KEstimator::new(vec![0, 1, 2, 3, 4, 5]);
+    let mut estimator = KEstimator::new(vec![0, 1, 2, 3, 4, 5], true);
 
     // Proceed in raster-scan order.
     for (x, y) in pixels {
@@ -168,7 +168,7 @@ pub fn decompress(compressed: &CompressedGrayscaleImage) -> Option<GrayImage> {
     image.put_pixel(x, y, Luma([compressed.pixel2]));
 
     let mut data_iter = compressed.data.iter();
-    let mut estimator = KEstimator::new(vec![0, 1, 2, 3, 4, 5]);
+    let mut estimator = KEstimator::new(vec![0, 1, 2, 3, 4, 5], true);
 
     // Proceed in raster-scan order.
     for (x, y) in pixels {
