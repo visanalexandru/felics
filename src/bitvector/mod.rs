@@ -26,6 +26,10 @@ impl BitVector {
         self.len
     }
 
+    pub fn is_empty(&self) -> bool {
+        self.len == 0
+    }
+
     /// Pushes a new bit at the end of the `BitVector`.
     pub fn push(&mut self, bit: bool) {
         let bit_position = (self.len % BITS_PER_BYTE) as u32;
@@ -129,10 +133,12 @@ mod test {
     fn test_push_three_bits() {
         let mut bitvector = BitVector::new();
         assert!(bitvector.len() == 0);
+        assert!(bitvector.is_empty());
         bitvector.push(true);
         bitvector.push(false);
         bitvector.push(true);
         assert!(bitvector.len() == 3);
+        assert!(!bitvector.is_empty());
 
         let bits: Vec<bool> = bitvector.iter().collect();
         assert_eq!(bits, vec![true, false, true]);
