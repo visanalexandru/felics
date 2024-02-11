@@ -33,9 +33,11 @@ impl KEstimator {
     /// Updates the cumulative totals for this context
     /// to reflect that we have encoded a new value.
     pub fn update(&mut self, context: u8, encoded: u32) {
+        let ks_for_context = &mut self.context_map[context as usize];
+
         for (ki, &k) in self.reasonable_ks.iter().enumerate() {
             let code_length = RiceCoder::new(k).code_length(encoded);
-            self.context_map[context as usize][ki] += code_length;
+            ks_for_context[ki] += code_length;
         }
     }
 
