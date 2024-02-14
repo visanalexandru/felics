@@ -1,5 +1,5 @@
-use felics::compression::{compress, decompress};
-use image::{self, DynamicImage};
+use felics::compression::CompressDecompress;
+use image::{self, DynamicImage, GrayImage};
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -22,11 +22,11 @@ fn benchmark_file(path: &PathBuf) -> BenchmarkMetrics {
     // Compress, Decompress and report statistics.
     // Also make sure that the image is the same after decompression.
     let now = Instant::now();
-    let compressed = compress(&image);
+    let compressed = image.compress();
     let compress_tm = now.elapsed().as_secs_f64();
 
     let now = Instant::now();
-    let decompressed = decompress(&compressed).unwrap();
+    let decompressed = GrayImage::decompress(&compressed).unwrap();
     let decompress_tm = now.elapsed().as_secs_f64();
 
     assert_eq!(image, decompressed);
