@@ -12,10 +12,7 @@ pub struct RasterScan {
 impl RasterScan {
     /// Returns a new `RasterScan` iterator that will enumerate pixels
     /// in their raster-scan order in an image of dimensions `(width, height)`.
-    ///
-    /// Panics if the width or height is 0.
     pub fn new(width: u32, height: u32) -> RasterScan {
-        assert!(width > 0 && height > 0);
         RasterScan {
             image_width: width,
             image_height: height,
@@ -116,9 +113,9 @@ mod test {
     }
 
     #[test]
-    #[should_panic]
     fn test_raster_scan_empty_image() {
-        let _ = RasterScan::new(0, 0);
+        let mut rs = RasterScan::new(0, 0);
+        assert!(rs.next().is_none());
     }
 
     #[test]
