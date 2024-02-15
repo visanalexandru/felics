@@ -16,11 +16,6 @@ impl BitVector {
         }
     }
 
-    /// Returns the bitmask associated to the given position in a byte.
-    fn bitmask(position: u32) -> Option<u8> {
-        1u8.checked_shl(position)
-    }
-
     /// Returns the number of bits stored in the `BitVector`
     pub fn len(&self) -> usize {
         self.len
@@ -39,7 +34,7 @@ impl BitVector {
         }
 
         if bit {
-            let bitmask = BitVector::bitmask(bit_position).unwrap();
+            let bitmask = 1 << bit_position;
             let last = self.data.last_mut().unwrap();
             *last |= bitmask;
         }
@@ -101,7 +96,7 @@ impl<'a> Iterator for Iter<'a> {
 
         let byte = self.position / BITS_PER_BYTE;
         let bit_position = (self.position % BITS_PER_BYTE) as u32;
-        let bitmask: u8 = BitVector::bitmask(bit_position).unwrap();
+        let bitmask: u8 = 1 << bit_position;
         let bit = self.v.data[byte] & bitmask;
 
         self.position += 1;
@@ -117,18 +112,6 @@ impl<'a> Iterator for Iter<'a> {
 #[cfg(test)]
 mod test {
     use super::BitVector;
-    #[test]
-    fn test_bitmask() {
-        assert_eq!(BitVector::bitmask(0), Some(0b00000001));
-        assert_eq!(BitVector::bitmask(1), Some(0b00000010));
-        assert_eq!(BitVector::bitmask(2), Some(0b00000100));
-        assert_eq!(BitVector::bitmask(3), Some(0b00001000));
-        assert_eq!(BitVector::bitmask(4), Some(0b00010000));
-        assert_eq!(BitVector::bitmask(5), Some(0b00100000));
-        assert_eq!(BitVector::bitmask(6), Some(0b01000000));
-        assert_eq!(BitVector::bitmask(7), Some(0b10000000));
-        assert_eq!(BitVector::bitmask(8), None);
-    }
 
     #[test]
     fn test_push_three_bits() {
