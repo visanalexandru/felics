@@ -49,7 +49,9 @@ pub fn nearest_neighbours<T>((x, y): (u32, u32), img: &T) -> Option<((u32, u32),
 where
     T: GenericImageView,
 {
-    assert!(img.in_bounds(x, y));
+    debug_assert!(img.in_bounds(x, y));
+    let width = img.width();
+
     if x > 0 && y > 0 {
         Some(((x - 1, y), (x, y - 1)))
     } else if y == 0 {
@@ -61,7 +63,7 @@ where
     } else {
         if y >= 2 {
             Some(((x, y - 1), (x, y - 2)))
-        } else if img.in_bounds(x, y - 1) && img.in_bounds(x + 1, y - 1) {
+        } else if y > 0 && (x + 1) < width {
             Some(((x, y - 1), (x + 1, y - 1)))
         } else {
             None
@@ -165,12 +167,5 @@ mod test {
         let image = ImageMock::new(2, 2);
         assert_eq!(nearest_neighbours((0, 1), &image), Some(((0, 0), (1, 0))));
         assert_eq!(nearest_neighbours((1, 1), &image), Some(((0, 1), (1, 0))));
-    }
-
-    #[test]
-    #[should_panic]
-    fn test_nearest_neighbours_out_of_bounds() {
-        let image = ImageMock::new(100, 80);
-        nearest_neighbours((90, 80), &image);
     }
 }
