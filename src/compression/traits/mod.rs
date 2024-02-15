@@ -37,7 +37,7 @@ impl Intensity for u8 {
 }
 
 impl Intensity for u16 {
-    const K_VALUES: &'static [u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    const K_VALUES: &'static [u8] = &[0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14];
 
     const MAX_CONTEXT: usize = u16::MAX as usize;
 
