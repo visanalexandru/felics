@@ -1,5 +1,6 @@
 use felics::compression::CompressDecompress;
-use image::{self, DynamicImage, GrayImage};
+use image::{self, DynamicImage};
+use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
 use std::time::Instant;
@@ -10,36 +11,19 @@ struct BenchmarkMetrics {
     compress_size: usize,
 }
 
-fn benchmark_file(path: &PathBuf) -> BenchmarkMetrics {
-    let file_name = path.file_name().unwrap().to_str().unwrap();
-    let image = image::open(&path).unwrap();
-    let image = match image {
-        DynamicImage::ImageLuma8(image) => image,
-        _ => panic!("{:?} is not a grayscale image!", file_name),
-    };
-    let (width, height) = image.dimensions();
-
-    // Compress, Decompress and report statistics.
-    // Also make sure that the image is the same after decompression.
+fn compress_image<T>(im: T) -> BenchmarkMetrics
+where
+    T: CompressDecompress + Debug + Eq,
+{
     let now = Instant::now();
-    let compressed = image.compress();
+    let compressed = im.compress();
     let compress_tm = now.elapsed().as_secs_f64();
 
     let now = Instant::now();
-    let decompressed = GrayImage::decompress(&compressed).unwrap();
+    let decompressed = CompressDecompress::decompress(&compressed).unwrap();
     let decompress_tm = now.elapsed().as_secs_f64();
 
-    assert_eq!(image, decompressed);
-
-    println!(
-        "{}-{}x{} - CTime: {}, DTime: {}, Size: {}",
-        file_name,
-        width,
-        height,
-        compress_tm,
-        decompress_tm,
-        compressed.size()
-    );
+    assert_eq!(im, decompressed);
 
     BenchmarkMetrics {
         compress_tm,
@@ -48,11 +32,37 @@ fn benchmark_file(path: &PathBuf) -> BenchmarkMetrics {
     }
 }
 
+fn compress_file(path: &PathBuf) -> BenchmarkMetrics {
+    let file_name = path.file_name().unwrap().to_str().unwrap();
+    let image = image::open(&path).unwrap();
+
+    let (width, height) = (image.width(), image.height());
+    let name;
+
+    let results = match image {
+        DynamicImage::ImageLuma8(image) => {
+            name = format!("{}-{}x{}-8-bit grayscale", file_name, width, height);
+            compress_image(image)
+        }
+        DynamicImage::ImageLuma16(image) => {
+            name = format!("{}-{}x{}-16-bit grayscale", file_name, width, height);
+            compress_image(image)
+        }
+        _ => panic!("Unknown format!"),
+    };
+
+    println!(
+        "{} - CTime: {}, DTime: {}, Size: {}",
+        name, results.compress_tm, results.decompress_tm, results.compress_size
+    );
+    results
+}
+
 /// Compress all the images in the test suite and report
 /// various metrics.
 #[test]
 fn compress_suite() {
-    let root = format!("{}/grayscale-suite", env!("CARGO_MANIFEST_DIR"));
+    let root = format!("{}/grayscale-suite/8bit", env!("CARGO_MANIFEST_DIR"));
     let files = fs::read_dir(root).unwrap();
 
     let mut total_compress_tm = 0.0;
@@ -61,7 +71,7 @@ fn compress_suite() {
 
     for file in files {
         let entry_path = file.unwrap().path();
-        let metrics = benchmark_file(&entry_path);
+        let metrics = compress_file(&entry_path);
 
         total_compress_tm += metrics.compress_tm;
         total_decompress_tm += metrics.decompress_tm;
