@@ -54,14 +54,7 @@ impl PhaseInCoder {
 
         // The first P integers: [0, P - 1] receive short codewords (m bits).
         if number < self.right_p {
-            for bit in (0..self.m).rev() {
-                let mask = 1 << bit;
-                if (number & mask) == mask {
-                    bitvector.push(true);
-                } else {
-                    bitvector.push(false);
-                }
-            }
+            bitvector.pushn(self.m as u8, number);
         }
         // The remaining 2*p integers [P, n-1] are assigned the long codewords (m+1 bits).
         // The long codewords consist of p pairs, where each pair starts with the m-bit value
@@ -72,14 +65,7 @@ impl PhaseInCoder {
             let last_bit = (number - self.right_p) % 2;
             let to_encode = pair + self.right_p;
 
-            for bit in (0..self.m).rev() {
-                let mask = 1 << bit;
-                if (to_encode & mask) == mask {
-                    bitvector.push(true);
-                } else {
-                    bitvector.push(false);
-                }
-            }
+            bitvector.pushn(self.m as u8, to_encode);
             bitvector.push(if last_bit == 1 { true } else { false });
         }
     }
@@ -89,14 +75,7 @@ impl PhaseInCoder {
     /// Returns `None` if the decoding process failed.
     pub fn decode(&self, iter: &mut bitvector::Iter) -> Option<u32> {
         // Read m bits.
-        let mut first_m = 0;
-        for bit in (0..self.m).rev() {
-            let mask = 1 << bit;
-            let is_toggled = iter.next()?;
-            if is_toggled {
-                first_m += mask;
-            }
-        }
+        let first_m = iter.nextn(self.m as u8)?;
 
         if first_m < self.right_p {
             return Some(self.rotate_left(first_m));
@@ -181,40 +160,40 @@ mod test {
     fn test_phase_in_encoding() {
         assert_eq!(
             get_phase_in_codes(7),
-            vec!["101", "110", "111", "00", "010", "011", "100"]
+            vec!["011", "110", "111", "00", "100", "101", "010"]
         );
 
         assert_eq!(
             get_phase_in_codes(8),
-            vec!["000", "001", "010", "011", "100", "101", "110", "111"]
+            vec!["000", "100", "010", "110", "001", "101", "011", "111"]
         );
 
         assert_eq!(
             get_phase_in_codes(9),
-            vec!["1111", "000", "001", "010", "011", "100", "101", "110", "1110"]
+            vec!["1111", "000", "100", "010", "110", "001", "101", "011", "1110"]
         );
 
         assert_eq!(
             get_phase_in_codes(15),
             vec![
-                "1001", "1010", "1011", "1100", "1101", "1110", "1111", "000", "0010", "0011",
-                "0100", "0101", "0110", "0111", "1000"
+                "0011", "1010", "1011", "0110", "0111", "1110", "1111", "000", "1000", "1001",
+                "0100", "0101", "1100", "1101", "0010"
             ]
         );
 
         assert_eq!(
             get_phase_in_codes(16),
             vec![
-                "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000", "1001",
-                "1010", "1011", "1100", "1101", "1110", "1111"
+                "0000", "1000", "0100", "1100", "0010", "1010", "0110", "1110", "0001", "1001",
+                "0101", "1101", "0011", "1011", "0111", "1111"
             ]
         );
 
         assert_eq!(
             get_phase_in_codes(17),
             vec![
-                "11111", "0000", "0001", "0010", "0011", "0100", "0101", "0110", "0111", "1000",
-                "1001", "1010", "1011", "1100", "1101", "1110", "11110",
+                "11111", "0000", "1000", "0100", "1100", "0010", "1010", "0110", "1110", "0001",
+                "1001", "0101", "1101", "0011", "1011", "0111", "11110"
             ]
         );
     }

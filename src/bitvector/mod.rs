@@ -1,3 +1,4 @@
+use std::cmp;
 use std::fmt;
 const BITS_PER_BYTE: usize = u8::BITS as usize;
 
@@ -40,6 +41,37 @@ impl BitVector {
         }
 
         self.len += 1;
+    }
+
+    /// Push the last `n` significant bits of the given bitmask at the
+    /// end of the bitvector.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `n` exceedes `u32::BITS`.
+    pub fn pushn(&mut self, mut n: u8, mut bitmask: u32) {
+        assert!(n <= u32::BITS as u8, "n is too big!");
+
+        let mut bit_position = self.len % BITS_PER_BYTE;
+        while n > 0 {
+            if bit_position == 0 {
+                self.data.push(0);
+            }
+
+            let remaining_in_chunk = BITS_PER_BYTE - bit_position;
+            let num_bits_to_mask = cmp::min(remaining_in_chunk as u8, n);
+
+            let mask_just_enough = (1u32 << num_bits_to_mask) - 1;
+            let to_append = bitmask & mask_just_enough;
+
+            let last = self.data.last_mut().unwrap();
+            *last |= (to_append as u8) << bit_position;
+
+            n -= num_bits_to_mask;
+            bitmask >>= num_bits_to_mask;
+            self.len += num_bits_to_mask as usize;
+            bit_position = 0;
+        }
     }
 
     /// Constructs a new iterator over the bits in the `BitVector`.
@@ -90,6 +122,31 @@ impl<'a> Iterator for Iter<'a> {
     type Item = bool;
 
     fn next(&mut self) -> Option<Self::Item> {
+        self.next()
+    }
+}
+
+/// Returns an `u8` bitmask masking bits in the range `start..=end`.
+///
+/// # Panics
+///
+/// Panics if `start` or `end` are greater or equal to `u8::BITS`.
+/// Also panic if `start > end`.
+fn bitmask_segment(start: u8, end: u8) -> u8 {
+    assert!(start < u8::BITS as u8);
+    assert!(end < u8::BITS as u8);
+    assert!(start <= end);
+
+    let segment_length = (end - start + 1) as u32;
+    let bitmask_segment = ((1u32 << segment_length) - 1) as u8;
+    bitmask_segment << start
+}
+
+impl<'a> Iter<'a> {
+    /// Returns the next bit in the `BitVector`, or `None` if the iterator
+    /// reached the end of the `BitVector`. Also advances the iterator by
+    /// a bit.
+    pub fn next(&mut self) -> Option<bool> {
         if self.position >= self.v.len {
             return None;
         }
@@ -107,11 +164,58 @@ impl<'a> Iterator for Iter<'a> {
             Some(false)
         }
     }
+
+    /// If there are more than `n` bits to iterate on, reads the next `n`
+    /// bits in the bitvector and returns a bitmask containing
+    /// the `n` bits, while advancing the iterator by `n` positions.
+    /// Otherwise, returns `None`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `n` exceedes `u32::BITS`.
+    pub fn nextn(&mut self, mut n: u8) -> Option<u32> {
+        assert!(n <= u32::BITS as u8, "n is too big!");
+
+        if n == 0 {
+            return Some(0);
+        }
+
+        if self.position + (n as usize) - 1 >= self.v.len {
+            return None;
+        }
+
+        let mut byte = self.position / BITS_PER_BYTE;
+        let mut bit_position = self.position % BITS_PER_BYTE;
+
+        let mut result = 0;
+        let mut masked_count = 0;
+
+        while n > 0 {
+            let remaining_in_chunk = BITS_PER_BYTE - bit_position;
+            let num_bits_to_mask = cmp::min(remaining_in_chunk as u8, n);
+
+            let start = bit_position as u8;
+            let end = start + num_bits_to_mask - 1;
+
+            let mask_segment = bitmask_segment(start, end);
+            let to_append = ((self.v.data[byte] & mask_segment) >> start) as u32;
+
+            result |= to_append << masked_count;
+            masked_count += num_bits_to_mask;
+
+            n -= num_bits_to_mask;
+            byte += 1;
+            self.position += num_bits_to_mask as usize;
+            bit_position = 0;
+        }
+
+        Some(result)
+    }
 }
 
 #[cfg(test)]
 mod test {
-    use super::BitVector;
+    use super::{bitmask_segment, BitVector};
 
     #[test]
     fn test_push_three_bits() {
@@ -167,5 +271,79 @@ mod test {
         bitvector.push(false);
         bitvector.push(false);
         assert_eq!(bitvector.to_string(), "100100");
+    }
+
+    #[test]
+    fn test_pushn() {
+        let mut bitvector = BitVector::new();
+        bitvector.push(true);
+        bitvector.push(false);
+        bitvector.push(false);
+        bitvector.push(true);
+        bitvector.push(false);
+        bitvector.pushn(12, 0b110100100110);
+        assert_eq!(bitvector.to_string(), "10010011001001011");
+        bitvector.clear();
+
+        bitvector.push(false);
+        bitvector.push(true);
+        bitvector.push(false);
+        bitvector.pushn(32, u32::MAX);
+        assert_eq!(bitvector.to_string(), "01011111111111111111111111111111111");
+        bitvector.clear();
+
+        bitvector.pushn(0, 100);
+        assert!(bitvector.is_empty());
+
+        bitvector.pushn(1, 123);
+        assert_eq!(bitvector.to_string(), "1");
+        bitvector.clear();
+
+        bitvector.pushn(8, 0b10100110);
+        assert_eq!(bitvector.to_string(), "01100101");
+        bitvector.pushn(7, 0b0100101);
+        assert_eq!(bitvector.to_string(), "011001011010010");
+        bitvector.pushn(16, 0b1101011110111010);
+        assert_eq!(bitvector.to_string(), "0110010110100100101110111101011");
+    }
+
+    #[test]
+    fn test_bitmask_segment() {
+        assert_eq!(bitmask_segment(0, 3), 0b00001111);
+        assert_eq!(bitmask_segment(1, 3), 0b00001110);
+        assert_eq!(bitmask_segment(1, 7), 0b11111110);
+        assert_eq!(bitmask_segment(2, 7), 0b11111100);
+        assert_eq!(bitmask_segment(3, 7), 0b11111000);
+        assert_eq!(bitmask_segment(3, 6), 0b01111000);
+        assert_eq!(bitmask_segment(3, 5), 0b00111000);
+        assert_eq!(bitmask_segment(3, 4), 0b00011000);
+        assert_eq!(bitmask_segment(3, 3), 0b00001000);
+        assert_eq!(bitmask_segment(7, 7), 0b10000000);
+        assert_eq!(bitmask_segment(0, 7), 0b11111111);
+    }
+
+    #[test]
+    fn test_read_lastn() {
+        let mut bitvector = BitVector::new();
+        bitvector.pushn(11, 0b11000101001);
+        bitvector.pushn(29, 0b01110110110111010011101111010);
+        bitvector.pushn(1, 0b0);
+
+        let mut i = bitvector.iter();
+        assert_eq!(Some(0b101001), i.nextn(6));
+        assert_eq!(Some(0b11000), i.nextn(5));
+        assert_eq!(Some(0b011101111010), i.nextn(12));
+        assert_eq!(Some(0b01110110110111010), i.nextn(17));
+        assert_eq!(Some(0b0), i.nextn(1));
+        assert_eq!(Some(0), i.nextn(0));
+        assert_eq!(None, i.nextn(1));
+        bitvector.clear();
+
+        bitvector.pushn(17, 0b001);
+        let mut i = bitvector.iter();
+        assert_eq!(Some(0b001), i.nextn(3));
+        assert_eq!(Some(0b000000000000), i.nextn(12));
+        assert_eq!(None, i.nextn(3));
+        assert_eq!(Some(0b00), i.nextn(2));
     }
 }
