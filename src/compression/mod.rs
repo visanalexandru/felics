@@ -4,7 +4,7 @@ use crate::{
 };
 use error::DecompressionError;
 pub use format::CompressedImage;
-use image::{ImageBuffer, Luma};
+use image::{ImageBuffer, Luma, Pixel};
 use misc::RasterScan;
 use parameter_selection::KEstimator;
 use std::cmp;
@@ -57,6 +57,7 @@ fn decode_intensity(iter: &mut bitvector::Iter) -> Option<PixelIntensity> {
 
 impl<T> CompressDecompress for ImageBuffer<Luma<T>, Vec<T>>
 where
+    Luma<T>: Pixel<Subpixel = T>,
     T: Intensity,
 {
     fn compress(&self) -> CompressedImage {
@@ -243,7 +244,7 @@ where
 
 #[cfg(test)]
 mod test {
-    use super::{encode_intensity, CompressDecompress, Intensity, PixelIntensity};
+    use super::{encode_intensity, CompressDecompress, Pixel, PixelIntensity};
     use crate::{bitvector::BitVector, compression::decode_intensity};
     use image::{GrayImage, ImageBuffer, Luma};
     use rand::{
@@ -366,7 +367,7 @@ mod test {
         rng: &mut ThreadRng,
     ) -> ImageBuffer<Luma<T>, Vec<T>>
     where
-        T: Intensity,
+        Luma<T>: Pixel<Subpixel = T>,
         Standard: Distribution<T>,
     {
         let mut image = ImageBuffer::new(width, height);
