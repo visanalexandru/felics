@@ -74,6 +74,31 @@ impl BitVector {
         }
     }
 
+    /// Appends `n` toggled bits at the end of the `BitVector`.
+    pub fn pushn_toggled(&mut self, mut n: u32) {
+        let mut bit_position = self.len % BITS_PER_BYTE;
+        while n > 0 {
+            if bit_position == 0 {
+                self.data.push(0);
+            }
+
+            let remaining_in_chunk = (BITS_PER_BYTE - bit_position) as u32;
+            let num_ones_to_add = cmp::min(remaining_in_chunk, n);
+
+            let start = bit_position as u8;
+            let end = start + (num_ones_to_add as u8) - 1;
+
+            let mask_segment = bitmask_segment(start, end);
+
+            let last = self.data.last_mut().unwrap();
+            *last |= mask_segment;
+
+            n -= num_ones_to_add;
+            bit_position = 0;
+            self.len += num_ones_to_add as usize;
+        }
+    }
+
     /// Constructs a new iterator over the bits in the `BitVector`.
     pub fn iter(&self) -> Iter {
         return Iter {
@@ -345,5 +370,38 @@ mod test {
         assert_eq!(Some(0b000000000000), i.nextn(12));
         assert_eq!(None, i.nextn(3));
         assert_eq!(Some(0b00), i.nextn(2));
+    }
+
+    #[test]
+    fn test_pushn_toggled() {
+        let mut bitvector = BitVector::new();
+        bitvector.pushn_toggled(3);
+        assert_eq!(bitvector.len(), 3);
+        assert_eq!(bitvector.data, vec![7]);
+
+        bitvector.pushn_toggled(6);
+        assert_eq!(bitvector.len(), 9);
+        assert_eq!(bitvector.data, vec![255, 1]);
+
+        bitvector.pushn_toggled(7);
+        assert_eq!(bitvector.len(), 16);
+        assert_eq!(bitvector.data, vec![255, 255]);
+
+        bitvector.clear();
+        bitvector.pushn_toggled(45);
+        assert_eq!(bitvector.len(), 45);
+        assert_eq!(bitvector.data, vec![255, 255, 255, 255, 255, 31]);
+
+        bitvector.pushn_toggled(2);
+        assert_eq!(bitvector.data, vec![255, 255, 255, 255, 255, 127]);
+        assert_eq!(bitvector.len(), 47);
+
+        bitvector.pushn_toggled(1);
+        assert_eq!(bitvector.data, vec![255, 255, 255, 255, 255, 255]);
+        assert_eq!(bitvector.len(), 48);
+
+        bitvector.pushn_toggled(0);
+        assert_eq!(bitvector.data, vec![255, 255, 255, 255, 255, 255]);
+        assert_eq!(bitvector.len(), 48);
     }
 }

@@ -23,20 +23,11 @@ impl RiceCoder {
         let remainder = number & self.mask_first_k;
 
         // Encode the quotient in unary.
-        for _ in 0..quotient {
-            bitvector.push(true);
-        }
+        bitvector.pushn_toggled(quotient);
         bitvector.push(false);
 
         // Now encode the remainder using k bits.
-        for bit in (0..self.k).rev() {
-            let mask = 1 << bit;
-            if (remainder & mask) == mask {
-                bitvector.push(true);
-            } else {
-                bitvector.push(false);
-            }
-        }
+        bitvector.pushn(self.k, remainder);
     }
     /// Decodes an encoded rice number by advancing the `BitVector` iterator.
     ///
@@ -52,14 +43,7 @@ impl RiceCoder {
             quotient += 1;
         }
 
-        let mut remainder: u32 = 0;
-        for bit in (0..self.k).rev() {
-            let mask = 1 << bit;
-            let is_toggled = iter.next()?;
-            if is_toggled {
-                remainder += mask;
-            }
-        }
+        let remainder: u32 = iter.nextn(self.k)?;
 
         let result = quotient.checked_mul(self.m).unwrap() + remainder;
         Some(result)
@@ -83,7 +67,7 @@ mod test {
 
         RiceCoder::new(4).encode_rice(&mut bitvec, 7);
         let contained: Vec<u32> = bitvec.iter().map(|bit| bit as u32).collect();
-        assert_eq!(contained, vec![0, 0, 1, 1, 1]);
+        assert_eq!(contained, vec![0, 1, 1, 1, 0]);
 
         bitvec.clear();
 
