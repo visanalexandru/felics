@@ -1,12 +1,12 @@
 use super::error::DecompressionError;
 use super::format::{ColorFormat, CompressedImage};
-use num::{CheckedAdd, CheckedSub, One};
+use num::{CheckedAdd, CheckedSub, One, Zero};
 use std::cmp::Ord;
 
 /// This trait is implemented by all types that can
 /// represent a pixel intensity in a grayscale image.
 pub trait Intensity:
-    CheckedAdd + CheckedSub + Ord + Into<u32> + Into<usize> + TryFrom<u32> + One + Copy
+    CheckedAdd + CheckedSub + Ord + Into<u32> + Into<usize> + TryFrom<u32> + One + Zero + Copy
 {
     /// The list of reasonable k values we can use to encode
     /// this pixel intensity using rice coding.

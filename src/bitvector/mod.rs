@@ -17,6 +17,11 @@ impl BitVector {
         }
     }
 
+    /// Returns the number of bytes used.
+    pub fn size(&self) -> usize {
+        self.data.len()
+    }
+
     /// Returns the number of bits stored in the `BitVector`
     pub fn len(&self) -> usize {
         self.len
