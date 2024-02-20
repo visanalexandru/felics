@@ -66,13 +66,16 @@ where
         let context: usize = context.into();
         let ks_for_context = &self.context_map[context];
 
-        let (best_index, _min_length) = ks_for_context
-            .iter()
-            .enumerate()
-            .min_by_key(|(_index, &total_length)| total_length)
-            .unwrap();
+        let mut smallest = u32::MAX;
+        let mut best = 0;
 
-        return T::K_VALUES[best_index];
+        for (i, k) in ks_for_context.iter().enumerate() {
+            if *k < smallest {
+                best = i;
+                smallest = *k;
+            }
+        }
+        return T::K_VALUES[best];
     }
 }
 
