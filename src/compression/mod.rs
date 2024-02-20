@@ -4,7 +4,7 @@ use crate::{
 };
 use error::DecompressionError;
 pub use format::{CompressedChannel, CompressedImage};
-use image::{ImageBuffer, Luma, Pixel};
+use image::{ImageBuffer, Luma, Pixel, Rgb};
 use parameter_selection::KEstimator;
 use std::cmp;
 pub use traits::{CompressDecompress, Intensity};
@@ -54,7 +54,7 @@ fn decode_intensity(iter: &mut bitvector::Iter) -> Option<PixelIntensity> {
     Some(PixelIntensity::BelowRange)
 }
 
-fn compress_channel<T>(channel: &Vec<T>, width: u32, height: u32) -> CompressedChannel
+fn compress_channel<T>(channel: &[T], width: u32, height: u32) -> CompressedChannel
 where
     T: Intensity,
 {
@@ -83,8 +83,10 @@ where
     let mut bitvec = BitVector::new();
     let mut estimator: KEstimator<T> = KEstimator::new(true);
 
+    let total_size: usize = width.checked_mul(height).unwrap().try_into().unwrap();
+
     // Proceed in raster-scan order.
-    for i in 2..channel.len() {
+    for i in 2..total_size {
         let (a, b) = misc::nearest_neighbours(i, width as usize).unwrap();
 
         let p = channel[i];
@@ -153,6 +155,7 @@ where
     };
 
     // Create the pixel buffer.
+    // TODO: width*height might overflow u32 but fit in usize?
     let total_size: usize = width
         .checked_mul(height)
         .ok_or(DecompressionError::ValueOverflow)?
@@ -246,14 +249,97 @@ where
     }
 
     fn decompress(compressed: &CompressedImage) -> Result<Self, DecompressionError> {
-        assert_eq!(compressed.format, T::COLOR_FORMAT, "Invalid color format.");
+        if compressed.format != T::COLOR_FORMAT {
+            return Err(DecompressionError::InvalidColorFormat);
+        }
+        if compressed.channels.len() != Luma::CHANNEL_COUNT as usize {
+            return Err(DecompressionError::MissingChannelData);
+        }
 
         let (width, height) = (compressed.width, compressed.height);
+
         let compressed_channel = &compressed.channels[0];
         let channel = decompress_channel(compressed_channel, width, height)?;
         let image = ImageBuffer::from_raw(width, height, channel).unwrap();
 
         Ok(image)
+    }
+}
+
+impl<T> CompressDecompress for ImageBuffer<Rgb<T>, Vec<T>>
+where
+    Rgb<T>: Pixel<Subpixel = T>,
+    T: Intensity,
+{
+    fn compress(&self) -> CompressedImage {
+        let (width, height) = self.dimensions();
+        let num_pixels = (width as usize) * (height as usize);
+        let pixels = self.as_raw();
+
+        let (mut red, mut green, mut blue) = (
+            vec![T::zero(); num_pixels],
+            vec![T::zero(); num_pixels],
+            vec![T::zero(); num_pixels],
+        );
+
+        for i in 0..num_pixels {
+            let current = i * 3;
+            red[i] = pixels[current];
+            green[i] = pixels[current + 1];
+            blue[i] = pixels[current + 2];
+        }
+
+        let (c_red, c_green, c_blue) = (
+            compress_channel(&red, width, height),
+            compress_channel(&green, width, height),
+            compress_channel(&blue, width, height),
+        );
+
+        CompressedImage {
+            format: T::COLOR_FORMAT,
+            width: self.width(),
+            height: self.height(),
+            channels: vec![c_red, c_green, c_blue],
+        }
+    }
+
+    fn decompress(compressed: &CompressedImage) -> Result<Self, DecompressionError> {
+        if compressed.format != T::COLOR_FORMAT {
+            return Err(DecompressionError::InvalidColorFormat);
+        }
+
+        if compressed.channels.len() != Rgb::CHANNEL_COUNT as usize {
+            return Err(DecompressionError::MissingChannelData);
+        }
+
+        let (width, height) = (compressed.width, compressed.height);
+
+        let (c_red, c_green, c_blue) = (
+            &compressed.channels[0],
+            &compressed.channels[1],
+            &compressed.channels[2],
+        );
+
+        let (red, green, blue) = (
+            decompress_channel(c_red, width, height)?,
+            decompress_channel(c_green, width, height)?,
+            decompress_channel(c_blue, width, height)?,
+        );
+
+        let num_pixels = (width as usize) * (height as usize);
+        let buf_size = num_pixels
+            .checked_mul(Rgb::CHANNEL_COUNT as usize)
+            .ok_or(DecompressionError::InvalidDimensions)?;
+
+        let mut buf = vec![T::zero(); buf_size];
+
+        for i in 0..num_pixels {
+            buf[i * 3] = red[i];
+            buf[i * 3 + 1] = green[i];
+            buf[i * 3 + 2] = blue[i];
+        }
+
+        Ok(ImageBuffer::from_raw(width, height, buf).unwrap())
     }
 }
 
