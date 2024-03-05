@@ -106,10 +106,10 @@ impl BitVector {
 
     /// Constructs a new iterator over the bits in the `BitVector`.
     pub fn iter(&self) -> Iter {
-        return Iter {
+        Iter {
             v: self,
             position: 0,
-        };
+        }
     }
 
     /// Clears the `BitVector`, removing all bits.
@@ -138,7 +138,7 @@ impl fmt::Display for BitVector {
                 write!(f, "0")?;
             }
         }
-        return Ok(());
+        Ok(())
     }
 }
 
@@ -152,7 +152,7 @@ impl<'a> Iterator for Iter<'a> {
     type Item = bool;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.next()
+        self.next_bit()
     }
 }
 
@@ -176,7 +176,7 @@ impl<'a> Iter<'a> {
     /// Returns the next bit in the `BitVector`, or `None` if the iterator
     /// reached the end of the `BitVector`. Also advances the iterator by
     /// a bit.
-    pub fn next(&mut self) -> Option<bool> {
+    pub fn next_bit(&mut self) -> Option<bool> {
         if self.position >= self.v.len {
             return None;
         }
