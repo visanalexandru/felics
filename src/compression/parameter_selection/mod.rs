@@ -32,11 +32,11 @@ where
             context_map.push(k);
         }
 
-        return KEstimator {
+        KEstimator {
             context_map,
             periodic_count_scaling,
             phantom: PhantomData,
-        };
+        }
     }
 
     /// Updates the cumulative totals for this context
@@ -75,7 +75,7 @@ where
                 smallest = *k;
             }
         }
-        return T::K_VALUES[best];
+        T::K_VALUES[best]
     }
 }
 

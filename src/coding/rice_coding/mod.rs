@@ -18,7 +18,7 @@ impl RiceCoder {
     pub fn new(k: u8) -> RiceCoder {
         let m = 1u32.checked_shl(k as u32).expect("k is too big!");
         let mask_first_k = m - 1;
-        return RiceCoder { k, m, mask_first_k };
+        RiceCoder { k, m, mask_first_k }
     }
 
     /// Appends the rice encoded number to the given bitvector.
@@ -57,7 +57,7 @@ impl RiceCoder {
     /// The method doesn't actually encode the number to count the bitsize,
     /// so it's fast.
     pub fn code_length(&self, number: u32) -> u32 {
-        return (number >> self.k) + 1 + (self.k as u32);
+        (number >> self.k) + 1 + (self.k as u32)
     }
 }
 
