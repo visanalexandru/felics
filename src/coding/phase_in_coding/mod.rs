@@ -15,6 +15,10 @@ pub struct PhaseInCoder {
 
 impl PhaseInCoder {
     /// Constructs a phase-in coder for the given range: `[0, n-1]`.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `n` is 0 or greater or equal to 2^31.
     pub fn new(n: u32) -> PhaseInCoder {
         let m = n.checked_ilog2().expect("n is 0!");
 
@@ -47,6 +51,10 @@ impl PhaseInCoder {
     }
 
     /// Appends the phase-in coding of a number in the range `[0, n-1]` to the given bitvector.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `number` is out of range.
     pub fn encode(&self, bitvector: &mut BitVector, number: u32) {
         assert!(number < self.n);
 
@@ -105,6 +113,12 @@ mod test {
     #[should_panic]
     fn test_zero_n() {
         PhaseInCoder::new(0);
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_big_n() {
+        PhaseInCoder::new(1 << 31);
     }
 
     // Taken from the dummy chapter in the phase-in coding article.
