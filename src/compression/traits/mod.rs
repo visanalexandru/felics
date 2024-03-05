@@ -1,5 +1,5 @@
 use super::error::DecompressionError;
-use super::format::{ColorFormat, CompressedImage};
+use super::format::{CompressedImage, PixelDepth};
 use num::{CheckedAdd, CheckedSub, One, Zero};
 use std::cmp::Ord;
 
@@ -21,8 +21,8 @@ pub trait Intensity:
     /// Halve all code lengths when the smallest value reaches this threshold.
     const COUNT_SCALING_THRESHOLD: u32;
 
-    /// The color format associated with this pixel intensity.
-    const COLOR_FORMAT: ColorFormat;
+    /// The pixel depth of this pixel intensity.
+    const PIXEL_DEPTH: PixelDepth;
 }
 
 impl Intensity for u8 {
@@ -32,7 +32,7 @@ impl Intensity for u8 {
 
     const COUNT_SCALING_THRESHOLD: u32 = 1024;
 
-    const COLOR_FORMAT: ColorFormat = ColorFormat::Gray8;
+    const PIXEL_DEPTH: PixelDepth = PixelDepth::Eight;
 }
 
 impl Intensity for u16 {
@@ -42,7 +42,7 @@ impl Intensity for u16 {
 
     const COUNT_SCALING_THRESHOLD: u32 = 1024;
 
-    const COLOR_FORMAT: ColorFormat = ColorFormat::Gray16;
+    const PIXEL_DEPTH: PixelDepth = PixelDepth::Sixteen;
 }
 
 /// This trait is implemented by all image types that are supported by the felics

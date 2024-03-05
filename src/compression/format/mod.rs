@@ -1,10 +1,17 @@
 use crate::bitvector::BitVector;
 
-/// Supported color formats by the felics compression algorithm.
+/// Supported color types by the felics compression algorithm.
 #[derive(Debug, PartialEq, Eq)]
-pub enum ColorFormat {
-    Gray8,
-    Gray16,
+pub enum ColorType {
+    Gray,
+    Rgb,
+}
+
+/// Supported pixel depths by the felics compression algorithm.
+#[derive(Debug, PartialEq, Eq)]
+pub enum PixelDepth {
+    Eight,
+    Sixteen,
 }
 
 /// Holds actual compressed pixel data of a color channel.
@@ -17,7 +24,8 @@ pub struct CompressedChannel {
 /// A compressed representation of an image that was encoded using the felics
 /// compression algorithm.
 pub struct CompressedImage {
-    pub format: ColorFormat,
+    pub color_type: ColorType,
+    pub pixel_depth: PixelDepth,
     pub width: u32,
     pub height: u32,
     pub channels: Vec<CompressedChannel>,

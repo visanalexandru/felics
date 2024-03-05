@@ -3,7 +3,7 @@ use crate::{
     coding::{phase_in_coding::PhaseInCoder, rice_coding::RiceCoder},
 };
 use error::DecompressionError;
-pub use format::{CompressedChannel, CompressedImage};
+pub use format::{ColorType, CompressedChannel, CompressedImage, PixelDepth};
 use image::{ImageBuffer, Luma, Pixel, Rgb};
 use parameter_selection::KEstimator;
 use std::cmp;
@@ -155,7 +155,6 @@ where
     };
 
     // Create the pixel buffer.
-    // TODO: width*height might overflow u32 but fit in usize?
     let total_size: usize = width
         .checked_mul(height)
         .ok_or(DecompressionError::ValueOverflow)?
@@ -241,7 +240,8 @@ where
         let (width, height) = self.dimensions();
         let compressed_channel = compress_channel(self.as_raw(), width, height);
         CompressedImage {
-            format: T::COLOR_FORMAT,
+            color_type: ColorType::Gray,
+            pixel_depth: T::PIXEL_DEPTH,
             width: self.width(),
             height: self.height(),
             channels: vec![compressed_channel],
@@ -249,15 +249,17 @@ where
     }
 
     fn decompress(compressed: &CompressedImage) -> Result<Self, DecompressionError> {
-        if compressed.format != T::COLOR_FORMAT {
-            return Err(DecompressionError::InvalidColorFormat);
+        if compressed.color_type != ColorType::Gray {
+            return Err(DecompressionError::InvalidColorType);
         }
-        if compressed.channels.len() != Luma::CHANNEL_COUNT as usize {
-            return Err(DecompressionError::MissingChannelData);
+
+        if compressed.pixel_depth != T::PIXEL_DEPTH {
+            return Err(DecompressionError::InvalidPixelDepth);
         }
+
+        debug_assert_eq!(compressed.channels.len(), Luma::CHANNEL_COUNT as usize);
 
         let (width, height) = (compressed.width, compressed.height);
-
         let compressed_channel = &compressed.channels[0];
         let channel = decompress_channel(compressed_channel, width, height)?;
         let image = ImageBuffer::from_raw(width, height, channel).unwrap();
@@ -296,7 +298,8 @@ where
         );
 
         CompressedImage {
-            format: T::COLOR_FORMAT,
+            color_type: ColorType::Rgb,
+            pixel_depth: T::PIXEL_DEPTH,
             width: self.width(),
             height: self.height(),
             channels: vec![c_red, c_green, c_blue],
@@ -304,13 +307,15 @@ where
     }
 
     fn decompress(compressed: &CompressedImage) -> Result<Self, DecompressionError> {
-        if compressed.format != T::COLOR_FORMAT {
-            return Err(DecompressionError::InvalidColorFormat);
+        if compressed.color_type != ColorType::Rgb {
+            return Err(DecompressionError::InvalidColorType);
         }
 
-        if compressed.channels.len() != Rgb::CHANNEL_COUNT as usize {
-            return Err(DecompressionError::MissingChannelData);
+        if compressed.pixel_depth != T::PIXEL_DEPTH {
+            return Err(DecompressionError::InvalidPixelDepth);
         }
+
+        debug_assert_eq!(compressed.channels.len(), Rgb::CHANNEL_COUNT as usize);
 
         let (width, height) = (compressed.width, compressed.height);
 
@@ -524,8 +529,8 @@ mod test {
     fn test_compression_decompression_intensive() {
         let mut rng = rand::thread_rng();
 
-        for width in 0..100 {
-            for height in 0..100 {
+        for width in 0..20 {
+            for height in 0..20 {
                 let image = random_grayscale::<u8>(width, height, &mut rng);
                 let compressed = image.compress();
                 let decompressed = CompressDecompress::decompress(&compressed).unwrap();

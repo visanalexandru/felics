@@ -9,8 +9,8 @@ pub enum DecompressionError {
     ValueOverflow,
     /// The channel dimensions are invalid.
     InvalidDimensions,
-    /// There was an attempt to decompress an image with another color format.
-    InvalidColorFormat,
-    /// The compressed image has missing channel data.
-    MissingChannelData,
+    /// There was an attempt to decompress an image with another color type.
+    InvalidColorType,
+    /// There was an attempt to decompress an image with another pixel depth.
+    InvalidPixelDepth,
 }
