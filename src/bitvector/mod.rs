@@ -18,7 +18,7 @@ impl BitVector {
     }
 
     /// Returns the number of bytes used.
-    pub fn size(&self) -> usize {
+    pub fn num_bytes(&self) -> usize {
         self.data.len()
     }
 
@@ -34,7 +34,7 @@ impl BitVector {
 
     /// Pushes a new bit at the end of the `BitVector`.
     pub fn push(&mut self, bit: bool) {
-        let bit_position = (self.len % BITS_PER_BYTE) as u32;
+        let bit_position = self.len % BITS_PER_BYTE;
         if bit_position == 0 {
             self.data.push(0);
         }
@@ -182,7 +182,7 @@ impl<'a> Iter<'a> {
         }
 
         let byte = self.position / BITS_PER_BYTE;
-        let bit_position = (self.position % BITS_PER_BYTE) as u32;
+        let bit_position = self.position % BITS_PER_BYTE;
         let bitmask: u8 = 1 << bit_position;
         let bit = self.v.data[byte] & bitmask;
 
@@ -353,7 +353,7 @@ mod test {
     }
 
     #[test]
-    fn test_read_lastn() {
+    fn test_read_nextn() {
         let mut bitvector = BitVector::new();
         bitvector.pushn(11, 0b11000101001);
         bitvector.pushn(29, 0b01110110110111010011101111010);
@@ -375,6 +375,10 @@ mod test {
         assert_eq!(Some(0b000000000000), i.nextn(12));
         assert_eq!(None, i.nextn(3));
         assert_eq!(Some(0b00), i.nextn(2));
+
+        bitvector.clear();
+        let mut i = bitvector.iter();
+        assert_eq!(Some(0), i.nextn(0));
     }
 
     #[test]

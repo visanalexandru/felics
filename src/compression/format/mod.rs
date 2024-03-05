@@ -25,6 +25,6 @@ pub struct CompressedImage {
 
 impl CompressedImage {
     pub fn size(&self) -> usize {
-        self.channels.iter().map(|chan| chan.data.size()).sum()
+        self.channels.iter().map(|chan| chan.data.num_bytes()).sum()
     }
 }
