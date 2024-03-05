@@ -11,6 +11,10 @@ pub struct RiceCoder {
 
 impl RiceCoder {
     /// Creates a new RiceCoder for m = 2^k.
+    ///
+    /// # Panics
+    ///
+    /// Panics if k is greater than 31.
     pub fn new(k: u8) -> RiceCoder {
         let m = 1u32.checked_shl(k as u32).expect("k is too big!");
         let mask_first_k = m - 1;
