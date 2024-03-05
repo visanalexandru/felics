@@ -48,6 +48,14 @@ fn compress_file(path: &PathBuf) -> BenchmarkMetrics {
             name = format!("{}-{}x{}-16-bit grayscale", file_name, width, height);
             compress_image(image)
         }
+        DynamicImage::ImageRgb8(image) => {
+            name = format!("{}-{}x{}-8-bit rgb", file_name, width, height);
+            compress_image(image)
+        }
+        DynamicImage::ImageRgb16(image) => {
+            name = format!("{}-{}x{}-16-bit rgb", file_name, width, height);
+            compress_image(image)
+        }
         _ => panic!("Unknown format!"),
     };
 
@@ -62,23 +70,32 @@ fn compress_file(path: &PathBuf) -> BenchmarkMetrics {
 /// various metrics.
 #[test]
 fn compress_suite() {
-    let root = format!("{}/grayscale-suite/8bit", env!("CARGO_MANIFEST_DIR"));
-    let files = fs::read_dir(root).unwrap();
+    let folders = vec![
+        format!("{}/image-suite/grayscale/8bit", env!("CARGO_MANIFEST_DIR")),
+        format!("{}/image-suite/grayscale/16bit", env!("CARGO_MANIFEST_DIR")),
+        format!("{}/image-suite/rgb/8bit", env!("CARGO_MANIFEST_DIR")),
+    ];
 
-    let mut total_compress_tm = 0.0;
-    let mut total_decompress_tm = 0.0;
-    let mut total_size = 0;
+    for folder in folders {
+        println!("Entering folder: {}", folder);
+        let files = fs::read_dir(folder).unwrap();
 
-    for file in files {
-        let entry_path = file.unwrap().path();
-        let metrics = compress_file(&entry_path);
+        let mut total_compress_tm = 0.0;
+        let mut total_decompress_tm = 0.0;
+        let mut total_size = 0;
 
-        total_compress_tm += metrics.compress_tm;
-        total_decompress_tm += metrics.decompress_tm;
-        total_size += metrics.compress_size;
+        for file in files {
+            let entry_path = file.unwrap().path();
+            let metrics = compress_file(&entry_path);
+
+            total_compress_tm += metrics.compress_tm;
+            total_decompress_tm += metrics.decompress_tm;
+            total_size += metrics.compress_size;
+        }
+
+        println!(
+            "Total - CTime: {}, DTime: {}, Size: {}",
+            total_compress_tm, total_decompress_tm, total_size
+        );
     }
-    println!(
-        "Total - CTime: {}, DTime: {}, Size: {}",
-        total_compress_tm, total_decompress_tm, total_size
-    );
 }
