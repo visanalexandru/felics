@@ -2,7 +2,7 @@ use crate::coding::{phase_in_coding::PhaseInCoder, rice_coding::RiceCoder};
 use bitstream_io::{self, BigEndian, BitRead, BitReader, BitWrite, BitWriter};
 use error::DecompressionError;
 pub use format::{read_header, write_header, ColorType, Header, PixelDepth};
-use image::{ImageBuffer, Luma, Pixel};
+use image::{ImageBuffer, Luma, Pixel, Rgb};
 use parameter_selection::KEstimator;
 use std::cmp;
 use std::io::{self, Read, Write};
@@ -270,6 +270,84 @@ where
         let channel = decompress_channel(header.width, header.height, &mut bitreader)?;
         let image = ImageBuffer::from_raw(header.width, header.height, channel).unwrap();
         Ok(image)
+    }
+}
+
+impl<T> CompressDecompress for ImageBuffer<Rgb<T>, Vec<T>>
+where
+    Rgb<T>: Pixel<Subpixel = T>,
+    T: Intensity,
+{
+    fn compress<W>(&self, mut to: W) -> io::Result<()>
+    where
+        W: Write,
+    {
+        let (width, height) = self.dimensions();
+        write_header(
+            Header {
+                color_type: ColorType::Rgb,
+                pixel_depth: T::PIXEL_DEPTH,
+                width,
+                height,
+            },
+            &mut to,
+        )?;
+
+        let num_pixels = (width as usize) * (height as usize);
+        let pixels = self.as_raw();
+
+        let (mut red, mut green, mut blue) = (
+            vec![T::zero(); num_pixels],
+            vec![T::zero(); num_pixels],
+            vec![T::zero(); num_pixels],
+        );
+
+        for i in 0..num_pixels {
+            let current = i * 3;
+            red[i] = pixels[current];
+            green[i] = pixels[current + 1];
+            blue[i] = pixels[current + 2];
+        }
+
+        let mut bitwriter: BitWriter<W, BigEndian> = BitWriter::new(to);
+        compress_channel(&red, width, height, &mut bitwriter)?;
+        compress_channel(&green, width, height, &mut bitwriter)?;
+        compress_channel(&blue, width, height, &mut bitwriter)?;
+        bitwriter.byte_align()?;
+        bitwriter.flush()?;
+        Ok(())
+    }
+
+    fn decompress<R>(mut from: R) -> Result<Self, DecompressionError>
+    where
+        Self: Sized,
+        R: Read,
+    {
+        let header = read_header(&mut from)?;
+        if header.color_type != ColorType::Rgb {
+            return Err(DecompressionError::InvalidColorType);
+        }
+        if header.pixel_depth != T::PIXEL_DEPTH {
+            return Err(DecompressionError::InvalidPixelDepth);
+        }
+
+        let mut bitreader: BitReader<R, BigEndian> = BitReader::new(from);
+        let red = decompress_channel(header.width, header.height, &mut bitreader)?;
+        let green = decompress_channel(header.width, header.height, &mut bitreader)?;
+        let blue = decompress_channel(header.width, header.height, &mut bitreader)?;
+
+        let num_pixels = (header.width as usize) * (header.height as usize);
+        let buf_size = num_pixels
+            .checked_mul(Rgb::CHANNEL_COUNT as usize)
+            .ok_or(DecompressionError::InvalidDimensions)?;
+
+        let mut buf = vec![T::zero(); buf_size];
+        for i in 0..num_pixels {
+            buf[i * 3] = red[i];
+            buf[i * 3 + 1] = green[i];
+            buf[i * 3 + 2] = blue[i];
+        }
+        Ok(ImageBuffer::from_raw(header.width, header.height, buf).unwrap())
     }
 }
 
