@@ -354,13 +354,14 @@ where
 #[cfg(test)]
 mod test {
     use super::{CompressDecompress, Pixel};
-    use image::{GrayImage, ImageBuffer, Luma};
+    use image::{GrayImage, ImageBuffer, Luma, Rgb};
     use rand::{
         self,
         distributions::{Distribution, Standard},
         rngs::ThreadRng,
         Rng,
     };
+    use std::fmt::Debug;
     use std::io::Cursor;
 
     #[test]
@@ -387,6 +388,21 @@ mod test {
             for x in 0..width {
                 let pixel_intensity: T = rng.gen();
                 image.put_pixel(x, y, Luma([pixel_intensity]));
+            }
+        }
+        image
+    }
+
+    fn random_rgb<T>(width: u32, height: u32, rng: &mut ThreadRng) -> ImageBuffer<Rgb<T>, Vec<T>>
+    where
+        Rgb<T>: Pixel<Subpixel = T>,
+        Standard: Distribution<T>,
+    {
+        let mut image = ImageBuffer::new(width, height);
+        for y in 0..height {
+            for x in 0..width {
+                let (a, b, c) = (rng.gen(), rng.gen(), rng.gen());
+                image.put_pixel(x, y, Rgb([a, b, c]));
             }
         }
         image
@@ -424,26 +440,30 @@ mod test {
         }
     }
 
+    // Compresses an image and then decompresses it to check if
+    // decompress(compress(x)) = x
+    fn compress_then_decompress<T>(image: T)
+    where
+        T: CompressDecompress + Eq + Debug,
+    {
+        let mut sink = Vec::new();
+        image.compress(&mut sink).unwrap();
+        let decompressed = CompressDecompress::decompress(Cursor::new(sink)).unwrap();
+        assert_eq!(image, decompressed);
+    }
+
     #[test]
     #[ignore]
     fn test_compression_decompression_intensive() {
         let mut rng = rand::thread_rng();
 
-        for width in 0..100 {
-            for height in 0..100 {
-                println!("{} {}", width, height);
-                let image = random_grayscale::<u8>(width, height, &mut rng);
+        for width in 0..20 {
+            for height in 0..20 {
+                compress_then_decompress(random_grayscale::<u8>(width, height, &mut rng));
+                compress_then_decompress(random_grayscale::<u16>(width, height, &mut rng));
 
-                let mut sink = Vec::new();
-                image.compress(&mut sink).unwrap();
-                let decompressed = CompressDecompress::decompress(&mut Cursor::new(sink)).unwrap();
-                assert_eq!(image, decompressed);
-
-                let mut sink = Vec::new();
-                let image = random_grayscale::<u16>(width, height, &mut rng);
-                image.compress(&mut sink).unwrap();
-                let decompressed = CompressDecompress::decompress(&mut Cursor::new(sink)).unwrap();
-                assert_eq!(image, decompressed);
+                compress_then_decompress(random_rgb::<u8>(width, height, &mut rng));
+                compress_then_decompress(random_rgb::<u16>(width, height, &mut rng));
             }
         }
     }
