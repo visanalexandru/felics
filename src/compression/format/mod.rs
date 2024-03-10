@@ -52,7 +52,7 @@ pub fn write_header<T>(header: Header, mut to: T) -> io::Result<()>
 where
     T: Write,
 {
-    to.write_all(b"flcs")?;
+    to.write_all(b"FLCS")?;
     to.write_u8(header.color_type as u8)?;
     to.write_u8(header.pixel_depth as u8)?;
     to.write_u32::<BigEndian>(header.width)?;
@@ -66,7 +66,7 @@ where
 {
     let mut magic = vec![0; 4];
     from.read_exact(&mut magic)?;
-    if magic != b"flcs" {
+    if magic != b"FLCS" {
         return Err(DecompressionError::InvalidSignature);
     }
 
