@@ -1,12 +1,11 @@
-use crate::{
-    bitvector::{self, BitVector},
-    coding::{phase_in_coding::PhaseInCoder, rice_coding::RiceCoder},
-};
+use crate::coding::{phase_in_coding::PhaseInCoder, rice_coding::RiceCoder};
+use bitstream_io::{self, BigEndian, BitRead, BitReader, BitWrite, BitWriter};
 use error::DecompressionError;
-pub use format::{ColorType, CompressedChannel, CompressedImage, PixelDepth};
-use image::{ImageBuffer, Luma, Pixel, Rgb};
+pub use format::{read_header, write_header, ColorType, Header, PixelDepth};
+use image::{ImageBuffer, Luma, Pixel};
 use parameter_selection::KEstimator;
 use std::cmp;
+use std::io::{self, Read, Write};
 pub use traits::{CompressDecompress, Intensity};
 
 mod error;
@@ -24,67 +23,82 @@ enum PixelIntensity {
     AboveRange,
 }
 
-/// Appends the encoded pixel intensity indicator to the given `BitVector`.
-fn encode_intensity(bitvec: &mut BitVector, intensity: PixelIntensity) {
+/// Writes the `PixelIntensity` to the given `BitWrite` using simple prefix codes.
+fn encode_intensity<T>(bitwrite: &mut T, intensity: PixelIntensity) -> io::Result<()>
+where
+    T: BitWrite,
+{
     match intensity {
-        PixelIntensity::InRange => bitvec.push(true),
+        PixelIntensity::InRange => bitwrite.write_bit(true)?,
         PixelIntensity::AboveRange => {
-            bitvec.push(false);
-            bitvec.push(true)
+            bitwrite.write_bit(false)?;
+            bitwrite.write_bit(true)?;
         }
         PixelIntensity::BelowRange => {
-            bitvec.push(false);
-            bitvec.push(false)
+            bitwrite.write_bit(false)?;
+            bitwrite.write_bit(false)?;
         }
     }
+    Ok(())
 }
 
-/// Decodes a pixel intensity indicator by advancing the `BitVector` iterator.
-///
-/// Returns `None` if the decoding process failed.
-fn decode_intensity(iter: &mut bitvector::Iter) -> Option<PixelIntensity> {
-    let in_range = iter.next()?;
+/// Reads a `PixelIntensity` from the given `BitRead`.
+fn decode_intensity<T>(bitread: &mut T) -> io::Result<PixelIntensity>
+where
+    T: BitRead,
+{
+    let in_range = bitread.read_bit()?;
     if in_range {
-        return Some(PixelIntensity::InRange);
+        return Ok(PixelIntensity::InRange);
     }
-    let above = iter.next()?;
+    let above = bitread.read_bit()?;
     if above {
-        return Some(PixelIntensity::AboveRange);
+        return Ok(PixelIntensity::AboveRange);
     }
-    Some(PixelIntensity::BelowRange)
+    Ok(PixelIntensity::BelowRange)
 }
 
-fn compress_channel<T>(channel: &[T], width: u32, height: u32) -> CompressedChannel
+/// Compresses a channel and writes it to the given `BitWrite`.
+///
+/// # Panics
+///
+/// This functions assumes that the `channel` is big enough to hold
+/// `width*height` pixels. It will panic if the `channel` is not big enough.
+fn compress_channel<T, W>(
+    channel: &[T],
+    width: u32,
+    height: u32,
+    bitwrite: &mut W,
+) -> io::Result<()>
 where
     T: Intensity,
+    W: BitWrite,
 {
+    let total_size: usize = width.checked_mul(height).unwrap().try_into().unwrap();
+    assert!(
+        channel.len() >= total_size,
+        "The channel is not big enough!"
+    );
+
     // Check for edge-case image dimensions.
     match (width, height) {
         (0, _) | (_, 0) => {
-            return CompressedChannel {
-                pixel1: 0,
-                pixel2: 0,
-                data: BitVector::new(),
-            };
+            T::zero().write(bitwrite)?;
+            T::zero().write(bitwrite)?;
+            return Ok(());
         }
         (1, 1) => {
-            return CompressedChannel {
-                pixel1: channel[0].into(),
-                pixel2: 0,
-                data: BitVector::new(),
-            };
+            channel[0].write(bitwrite)?;
+            T::zero().write(bitwrite)?;
+            return Ok(());
         }
-        _ => (),
+        _ => {
+            channel[0].write(bitwrite)?;
+            channel[1].write(bitwrite)?;
+        }
     };
 
-    // We now know that we have at least 2 pixels.
-    let (pixel1, pixel2) = (channel[0], channel[1]);
-
-    let mut bitvec = BitVector::new();
     let mut estimator: KEstimator<T> = KEstimator::new(true);
-
-    let total_size: usize = width.checked_mul(height).unwrap().try_into().unwrap();
-
     // Proceed in raster-scan order.
     for i in 2..total_size {
         let (a, b) = misc::nearest_neighbours(i, width as usize).unwrap();
@@ -100,48 +114,38 @@ where
         let rice_coder = RiceCoder::new(k);
 
         if p >= l && p <= h {
-            encode_intensity(&mut bitvec, PixelIntensity::InRange);
+            encode_intensity(bitwrite, PixelIntensity::InRange)?;
             let to_encode = p - l;
             let phase_in_coder = PhaseInCoder::new(Into::<u32>::into(context) + 1);
-            phase_in_coder.encode(&mut bitvec, to_encode.into());
+            phase_in_coder.encode(bitwrite, to_encode.into())?;
         } else if p < l {
-            encode_intensity(&mut bitvec, PixelIntensity::BelowRange);
+            encode_intensity(bitwrite, PixelIntensity::BelowRange)?;
             let to_encode = l - p - T::one();
-            rice_coder.encode_rice(&mut bitvec, to_encode.into());
+            rice_coder.encode(bitwrite, to_encode.into())?;
             estimator.update(context, to_encode);
         } else {
-            encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
+            encode_intensity(bitwrite, PixelIntensity::AboveRange)?;
             let to_encode = p - h - T::one();
-            rice_coder.encode_rice(&mut bitvec, to_encode.into());
+            rice_coder.encode(bitwrite, to_encode.into())?;
             estimator.update(context, to_encode);
         }
     }
-
-    CompressedChannel {
-        pixel1: pixel1.into(),
-        pixel2: pixel2.into(),
-        data: bitvec,
-    }
+    Ok(())
 }
 
-fn decompress_channel<T>(
-    compressed: &CompressedChannel,
+/// Decompresses a channel by reading from the given `BitRead`.
+fn decompress_channel<T, R>(
     width: u32,
     height: u32,
+    bitread: &mut R,
 ) -> Result<Vec<T>, DecompressionError>
 where
     T: Intensity,
+    R: BitRead,
 {
     // Parse the first two pixels.
-    let pixel1: T = compressed
-        .pixel1
-        .try_into()
-        .map_err(|_| DecompressionError::InvalidValue)?;
-
-    let pixel2: T = compressed
-        .pixel2
-        .try_into()
-        .map_err(|_| DecompressionError::InvalidValue)?;
+    let pixel1: T = T::read(bitread)?;
+    let pixel2: T = T::read(bitread)?;
 
     // Handle edge-case dimensions.
     match (width, height) {
@@ -157,7 +161,7 @@ where
     // Create the pixel buffer.
     let total_size: usize = width
         .checked_mul(height)
-        .ok_or(DecompressionError::ValueOverflow)?
+        .ok_or(DecompressionError::InvalidDimensions)?
         .try_into()
         .map_err(|_| DecompressionError::InvalidDimensions)?;
 
@@ -165,7 +169,6 @@ where
     buf[0] = pixel1;
     buf[1] = pixel2;
 
-    let mut data_iter = compressed.data.iter();
     let mut estimator: KEstimator<T> = KEstimator::new(true);
 
     // Proceed in raster-scan order.
@@ -181,25 +184,20 @@ where
         let k = estimator.get_k(context);
         let rice_coder = RiceCoder::new(k);
 
-        let intensity = match decode_intensity(&mut data_iter) {
-            Some(intensity) => intensity,
-            None => return Err(DecompressionError::Truncated),
-        };
+        let intensity = decode_intensity(bitread)?;
 
         let pixel_value = match intensity {
             PixelIntensity::InRange => {
                 let phase_in_coder = PhaseInCoder::new(Into::<u32>::into(context) + 1);
                 let p: T = phase_in_coder
-                    .decode(&mut data_iter)
-                    .ok_or(DecompressionError::Truncated)?
+                    .decode(bitread)?
                     .try_into()
                     .map_err(|_| DecompressionError::InvalidValue)?;
                 p.checked_add(&l).ok_or(DecompressionError::ValueOverflow)?
             }
             PixelIntensity::BelowRange => {
                 let encoded: T = rice_coder
-                    .decode_rice(&mut data_iter)
-                    .ok_or(DecompressionError::Truncated)?
+                    .decode(bitread)?
                     .try_into()
                     .map_err(|_| DecompressionError::InvalidValue)?;
                 estimator.update(context, encoded);
@@ -212,8 +210,7 @@ where
             }
             PixelIntensity::AboveRange => {
                 let encoded: T = rice_coder
-                    .decode_rice(&mut data_iter)
-                    .ok_or(DecompressionError::Truncated)?
+                    .decode(bitread)?
                     .try_into()
                     .map_err(|_| DecompressionError::InvalidValue)?;
                 estimator.update(context, encoded);
@@ -236,122 +233,49 @@ where
     Luma<T>: Pixel<Subpixel = T>,
     T: Intensity,
 {
-    fn compress(&self) -> CompressedImage {
+    fn compress<W>(&self, mut to: W) -> io::Result<()>
+    where
+        W: Write,
+    {
         let (width, height) = self.dimensions();
-        let compressed_channel = compress_channel(self.as_raw(), width, height);
-        CompressedImage {
-            color_type: ColorType::Gray,
-            pixel_depth: T::PIXEL_DEPTH,
-            width: self.width(),
-            height: self.height(),
-            channels: vec![compressed_channel],
-        }
+        write_header(
+            Header {
+                color_type: ColorType::Gray,
+                pixel_depth: T::PIXEL_DEPTH,
+                width,
+                height,
+            },
+            &mut to,
+        )?;
+        let mut bitwriter: BitWriter<W, BigEndian> = BitWriter::new(to);
+        compress_channel(self.as_raw(), width, height, &mut bitwriter)?;
+        bitwriter.byte_align()?;
+        bitwriter.flush()?;
+        Ok(())
     }
 
-    fn decompress(compressed: &CompressedImage) -> Result<Self, DecompressionError> {
-        if compressed.color_type != ColorType::Gray {
+    fn decompress<R>(mut from: R) -> Result<Self, DecompressionError>
+    where
+        Self: Sized,
+        R: Read,
+    {
+        let header = read_header(&mut from)?;
+        if header.color_type != ColorType::Gray {
             return Err(DecompressionError::InvalidColorType);
         }
-
-        if compressed.pixel_depth != T::PIXEL_DEPTH {
+        if header.pixel_depth != T::PIXEL_DEPTH {
             return Err(DecompressionError::InvalidPixelDepth);
         }
-
-        debug_assert_eq!(compressed.channels.len(), Luma::CHANNEL_COUNT as usize);
-
-        let (width, height) = (compressed.width, compressed.height);
-        let compressed_channel = &compressed.channels[0];
-        let channel = decompress_channel(compressed_channel, width, height)?;
-        let image = ImageBuffer::from_raw(width, height, channel).unwrap();
-
+        let mut bitreader: BitReader<R, BigEndian> = BitReader::new(from);
+        let channel = decompress_channel(header.width, header.height, &mut bitreader)?;
+        let image = ImageBuffer::from_raw(header.width, header.height, channel).unwrap();
         Ok(image)
-    }
-}
-
-impl<T> CompressDecompress for ImageBuffer<Rgb<T>, Vec<T>>
-where
-    Rgb<T>: Pixel<Subpixel = T>,
-    T: Intensity,
-{
-    fn compress(&self) -> CompressedImage {
-        let (width, height) = self.dimensions();
-        let num_pixels = (width as usize) * (height as usize);
-        let pixels = self.as_raw();
-
-        let (mut red, mut green, mut blue) = (
-            vec![T::zero(); num_pixels],
-            vec![T::zero(); num_pixels],
-            vec![T::zero(); num_pixels],
-        );
-
-        for i in 0..num_pixels {
-            let current = i * 3;
-            red[i] = pixels[current];
-            green[i] = pixels[current + 1];
-            blue[i] = pixels[current + 2];
-        }
-
-        let (c_red, c_green, c_blue) = (
-            compress_channel(&red, width, height),
-            compress_channel(&green, width, height),
-            compress_channel(&blue, width, height),
-        );
-
-        CompressedImage {
-            color_type: ColorType::Rgb,
-            pixel_depth: T::PIXEL_DEPTH,
-            width: self.width(),
-            height: self.height(),
-            channels: vec![c_red, c_green, c_blue],
-        }
-    }
-
-    fn decompress(compressed: &CompressedImage) -> Result<Self, DecompressionError> {
-        if compressed.color_type != ColorType::Rgb {
-            return Err(DecompressionError::InvalidColorType);
-        }
-
-        if compressed.pixel_depth != T::PIXEL_DEPTH {
-            return Err(DecompressionError::InvalidPixelDepth);
-        }
-
-        debug_assert_eq!(compressed.channels.len(), Rgb::CHANNEL_COUNT as usize);
-
-        let (width, height) = (compressed.width, compressed.height);
-
-        let (c_red, c_green, c_blue) = (
-            &compressed.channels[0],
-            &compressed.channels[1],
-            &compressed.channels[2],
-        );
-
-        let (red, green, blue) = (
-            decompress_channel(c_red, width, height)?,
-            decompress_channel(c_green, width, height)?,
-            decompress_channel(c_blue, width, height)?,
-        );
-
-        let num_pixels = (width as usize) * (height as usize);
-        let buf_size = num_pixels
-            .checked_mul(Rgb::CHANNEL_COUNT as usize)
-            .ok_or(DecompressionError::InvalidDimensions)?;
-
-        let mut buf = vec![T::zero(); buf_size];
-
-        for i in 0..num_pixels {
-            buf[i * 3] = red[i];
-            buf[i * 3 + 1] = green[i];
-            buf[i * 3 + 2] = blue[i];
-        }
-
-        Ok(ImageBuffer::from_raw(width, height, buf).unwrap())
     }
 }
 
 #[cfg(test)]
 mod test {
-    use super::{encode_intensity, CompressDecompress, Pixel, PixelIntensity};
-    use crate::{bitvector::BitVector, compression::decode_intensity};
+    use super::{CompressDecompress, Pixel};
     use image::{GrayImage, ImageBuffer, Luma};
     use rand::{
         self,
@@ -359,119 +283,14 @@ mod test {
         rngs::ThreadRng,
         Rng,
     };
-
-    #[test]
-    fn test_intensity_indicator_encoding() {
-        let mut bitvec = BitVector::new();
-        encode_intensity(&mut bitvec, PixelIntensity::InRange);
-        assert_eq!(bitvec.to_string(), "1");
-
-        let mut bitvec = BitVector::new();
-        encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
-        assert_eq!(bitvec.to_string(), "01");
-
-        let mut bitvec = BitVector::new();
-        encode_intensity(&mut bitvec, PixelIntensity::BelowRange);
-        assert_eq!(bitvec.to_string(), "00");
-    }
-
-    #[test]
-    fn test_intensity_indicator_decoding() {
-        let mut bitvec = BitVector::new();
-        encode_intensity(&mut bitvec, PixelIntensity::InRange);
-        encode_intensity(&mut bitvec, PixelIntensity::InRange);
-        encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
-        encode_intensity(&mut bitvec, PixelIntensity::BelowRange);
-        encode_intensity(&mut bitvec, PixelIntensity::InRange);
-        encode_intensity(&mut bitvec, PixelIntensity::AboveRange);
-
-        let mut iter = bitvec.iter();
-
-        assert_eq!(decode_intensity(&mut iter), Some(PixelIntensity::InRange));
-        assert_eq!(decode_intensity(&mut iter), Some(PixelIntensity::InRange));
-        assert_eq!(
-            decode_intensity(&mut iter),
-            Some(PixelIntensity::AboveRange)
-        );
-        assert_eq!(
-            decode_intensity(&mut iter),
-            Some(PixelIntensity::BelowRange)
-        );
-        assert_eq!(decode_intensity(&mut iter), Some(PixelIntensity::InRange));
-        assert_eq!(
-            decode_intensity(&mut iter),
-            Some(PixelIntensity::AboveRange)
-        );
-        assert_eq!(decode_intensity(&mut iter), None);
-    }
+    use std::io::Cursor;
 
     #[test]
     fn test_compression_zero_width() {
         let image = GrayImage::new(0, 3);
-        let compressed = image.compress();
-
-        assert_eq!(compressed.width, 0);
-        assert_eq!(compressed.height, 3);
-        assert_eq!(compressed.channels.len(), 1);
-
-        let channel = &compressed.channels[0];
-        assert_eq!(channel.pixel1, 0);
-        assert_eq!(channel.pixel2, 0);
-        assert_eq!(channel.data.len(), 0);
-
-        let decompressed = GrayImage::decompress(&compressed).unwrap();
-        assert_eq!(image, decompressed);
-    }
-
-    #[test]
-    fn test_compression_zero_height() {
-        let image = GrayImage::new(12, 0);
-        let compressed = image.compress();
-
-        assert_eq!(compressed.width, 12);
-        assert_eq!(compressed.height, 0);
-
-        let channel = &compressed.channels[0];
-        assert_eq!(channel.pixel1, 0);
-        assert_eq!(channel.pixel2, 0);
-        assert_eq!(channel.data.len(), 0);
-
-        let decompressed = GrayImage::decompress(&compressed).unwrap();
-        assert_eq!(image, decompressed);
-    }
-
-    #[test]
-    fn test_compression_zero_width_and_height() {
-        let image = GrayImage::new(0, 0);
-        let compressed = image.compress();
-
-        assert_eq!(compressed.width, 0);
-        assert_eq!(compressed.height, 0);
-
-        let channel = &compressed.channels[0];
-        assert_eq!(channel.pixel1, 0);
-        assert_eq!(channel.pixel2, 0);
-        assert_eq!(channel.data.len(), 0);
-
-        let decompressed = GrayImage::decompress(&compressed).unwrap();
-        assert_eq!(image, decompressed);
-    }
-
-    #[test]
-    fn test_compression_single_pixel() {
-        let mut image = GrayImage::new(1, 1);
-        image.put_pixel(0, 0, Luma([243]));
-
-        let compressed = image.compress();
-        assert_eq!(compressed.width, 1);
-        assert_eq!(compressed.height, 1);
-
-        let channel = &compressed.channels[0];
-        assert_eq!(channel.pixel1, 243);
-        assert_eq!(channel.pixel2, 0);
-        assert_eq!(channel.data.len(), 0);
-
-        let decompressed = GrayImage::decompress(&compressed).unwrap();
+        let mut sink = Vec::new();
+        image.compress(&mut sink).unwrap();
+        let decompressed = GrayImage::decompress(&mut Cursor::new(sink)).unwrap();
         assert_eq!(image, decompressed);
     }
 
@@ -513,13 +332,16 @@ mod test {
 
         for (width, height) in dimensions {
             let image = random_grayscale::<u8>(width, height, &mut rng);
-            let compressed = image.compress();
-            let decompressed = CompressDecompress::decompress(&compressed).unwrap();
+
+            let mut sink = Vec::new();
+            image.compress(&mut sink).unwrap();
+            let decompressed = CompressDecompress::decompress(&mut Cursor::new(sink)).unwrap();
             assert_eq!(image, decompressed);
 
             let image = random_grayscale::<u16>(width, height, &mut rng);
-            let compressed = image.compress();
-            let decompressed = CompressDecompress::decompress(&compressed).unwrap();
+            let mut sink = Vec::new();
+            image.compress(&mut sink).unwrap();
+            let decompressed = CompressDecompress::decompress(&mut Cursor::new(sink)).unwrap();
             assert_eq!(image, decompressed);
         }
     }
@@ -529,16 +351,20 @@ mod test {
     fn test_compression_decompression_intensive() {
         let mut rng = rand::thread_rng();
 
-        for width in 0..20 {
-            for height in 0..20 {
+        for width in 0..100 {
+            for height in 0..100 {
+                println!("{} {}", width, height);
                 let image = random_grayscale::<u8>(width, height, &mut rng);
-                let compressed = image.compress();
-                let decompressed = CompressDecompress::decompress(&compressed).unwrap();
+
+                let mut sink = Vec::new();
+                image.compress(&mut sink).unwrap();
+                let decompressed = CompressDecompress::decompress(&mut Cursor::new(sink)).unwrap();
                 assert_eq!(image, decompressed);
 
+                let mut sink = Vec::new();
                 let image = random_grayscale::<u16>(width, height, &mut rng);
-                let compressed = image.compress();
-                let decompressed = CompressDecompress::decompress(&compressed).unwrap();
+                image.compress(&mut sink).unwrap();
+                let decompressed = CompressDecompress::decompress(&mut Cursor::new(sink)).unwrap();
                 assert_eq!(image, decompressed);
             }
         }

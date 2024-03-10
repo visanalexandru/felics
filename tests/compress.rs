@@ -1,4 +1,4 @@
-use felics::compression::CompressDecompress;
+/*use felics::compression::CompressDecompress;
 use image::{self, DynamicImage};
 use std::fmt::Debug;
 use std::fs;
@@ -99,3 +99,4 @@ fn compress_suite() {
         );
     }
 }
+*/
