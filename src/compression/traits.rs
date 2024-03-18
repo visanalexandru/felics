@@ -1,7 +1,9 @@
 use super::error::DecompressionError;
-use super::format::{CompressedImage, PixelDepth};
+use super::format::PixelDepth;
+use bitstream_io::{BitRead, BitWrite};
 use num::{CheckedAdd, CheckedSub, One, Zero};
 use std::cmp::Ord;
+use std::io::{self, Read, Write};
 
 /// This trait is implemented by all types that can
 /// represent a pixel intensity in a grayscale image.
@@ -23,6 +25,14 @@ pub trait Intensity:
 
     /// The pixel depth of this pixel intensity.
     const PIXEL_DEPTH: PixelDepth;
+
+    fn write<T>(&self, bitwrite: &mut T) -> io::Result<()>
+    where
+        T: BitWrite;
+
+    fn read<T>(bitread: &mut T) -> io::Result<Self>
+    where
+        T: BitRead;
 }
 
 impl Intensity for u8 {
@@ -33,6 +43,20 @@ impl Intensity for u8 {
     const COUNT_SCALING_THRESHOLD: u32 = 1024;
 
     const PIXEL_DEPTH: PixelDepth = PixelDepth::Eight;
+
+    fn write<T>(&self, bitwrite: &mut T) -> io::Result<()>
+    where
+        T: BitWrite,
+    {
+        bitwrite.write(u8::BITS, *self)
+    }
+
+    fn read<T>(bitread: &mut T) -> io::Result<Self>
+    where
+        T: BitRead,
+    {
+        bitread.read(u8::BITS)
+    }
 }
 
 impl Intensity for u16 {
@@ -43,14 +67,31 @@ impl Intensity for u16 {
     const COUNT_SCALING_THRESHOLD: u32 = 1024;
 
     const PIXEL_DEPTH: PixelDepth = PixelDepth::Sixteen;
+
+    fn write<T>(&self, bitwrite: &mut T) -> io::Result<()>
+    where
+        T: BitWrite,
+    {
+        bitwrite.write(u16::BITS, *self)
+    }
+
+    fn read<T>(bitread: &mut T) -> io::Result<Self>
+    where
+        T: BitRead,
+    {
+        bitread.read(u16::BITS)
+    }
 }
 
 /// This trait is implemented by all image types that are supported by the felics
 /// compression algorithm.
 pub trait CompressDecompress {
-    fn compress(&self) -> CompressedImage;
-
-    fn decompress(img: &CompressedImage) -> Result<Self, DecompressionError>
+    fn compress<W>(&self, to: W) -> io::Result<()>
     where
-        Self: Sized;
+        W: Write;
+
+    fn decompress<R>(from: R) -> Result<Self, DecompressionError>
+    where
+        Self: Sized,
+        R: Read;
 }

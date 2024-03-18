@@ -2,6 +2,7 @@ use felics::compression::CompressDecompress;
 use image::{self, DynamicImage};
 use std::fmt::Debug;
 use std::fs;
+use std::io::Cursor;
 use std::path::PathBuf;
 use std::time::Instant;
 
@@ -16,11 +17,12 @@ where
     T: CompressDecompress + Debug + Eq,
 {
     let now = Instant::now();
-    let compressed = im.compress();
+    let mut sink = Vec::new();
+    im.compress(&mut sink).unwrap();
     let compress_tm = now.elapsed().as_secs_f64();
 
     let now = Instant::now();
-    let decompressed = CompressDecompress::decompress(&compressed).unwrap();
+    let decompressed = CompressDecompress::decompress(Cursor::new(&sink)).unwrap();
     let decompress_tm = now.elapsed().as_secs_f64();
 
     assert_eq!(im, decompressed);
@@ -28,7 +30,7 @@ where
     BenchmarkMetrics {
         compress_tm,
         decompress_tm,
-        compress_size: compressed.size(),
+        compress_size: sink.len(),
     }
 }
 
