@@ -8,6 +8,7 @@ use std::cmp;
 use std::io::{self, Read, Write};
 pub use traits::{CompressDecompress, Intensity};
 
+mod color_transform;
 mod error;
 mod format;
 mod misc;
