@@ -45,9 +45,9 @@ impl KEstimator {
     ///
     /// # Panics
     ///
-    /// Panics if the context >= max_context.
+    /// Panics if context > max_context.
     pub fn update(&mut self, context: u32, encoded: u32) {
-        assert!(context < self.max_context);
+        assert!(context <= self.max_context);
         let ks_for_context = &mut self.context_map[context as usize];
 
         for (ki, &k) in self.k_values.iter().enumerate() {
@@ -64,8 +64,12 @@ impl KEstimator {
     }
 
     /// Returns the best parameter value k for the current context.
+    ///
+    /// # Panics
+    ///
+    /// Panics if context > max_context.
     pub fn get_k(&self, context: u32) -> u8 {
-        assert!(context < self.max_context);
+        assert!(context <= self.max_context);
         let ks_for_context = &self.context_map[context as usize];
 
         let mut smallest = u32::MAX;
