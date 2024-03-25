@@ -1,5 +1,6 @@
 use crate::coding::{phase_in_coding::PhaseInCoder, rice_coding::RiceCoder};
 use bitstream_io::{self, BigEndian, BitRead, BitReader, BitWrite, BitWriter};
+use color_transform::{rgb_to_ycocg, ycocg_to_rgb};
 use error::DecompressionError;
 pub use format::{read_header, write_header, ColorType, Header, PixelDepth};
 use image::{ImageBuffer, Luma, Pixel, Rgb};
@@ -8,6 +9,7 @@ use std::cmp;
 use std::io::{self, Read, Write};
 pub use traits::{CompressDecompress, Intensity};
 
+mod color_transform;
 mod error;
 mod format;
 mod misc;
@@ -58,20 +60,27 @@ where
     Ok(PixelIntensity::BelowRange)
 }
 
+#[derive(Copy, Clone)]
+struct CodingOptions {
+    max_context: u32,
+    k_values: &'static [u8],
+    periodic_count_scaling: Option<u32>,
+}
+
 /// Compresses a channel and writes it to the given `BitWrite`.
 ///
 /// # Panics
 ///
 /// This functions assumes that the `channel` is big enough to hold
 /// `width*height` pixels. It will panic if the `channel` is not big enough.
-fn compress_channel<T, W>(
-    channel: &[T],
+fn compress_channel<W>(
+    channel: &[i32],
     width: u32,
     height: u32,
+    options: CodingOptions,
     bitwrite: &mut W,
 ) -> io::Result<()>
 where
-    T: Intensity,
     W: BitWrite,
 {
     let total_size: usize = width.checked_mul(height).unwrap().try_into().unwrap();
@@ -83,22 +92,27 @@ where
     // Check for edge-case image dimensions.
     match (width, height) {
         (0, _) | (_, 0) => {
-            T::zero().write(bitwrite)?;
-            T::zero().write(bitwrite)?;
+            bitwrite.write_signed(i32::BITS, 0)?;
+            bitwrite.write_signed(i32::BITS, 0)?;
             return Ok(());
         }
         (1, 1) => {
-            channel[0].write(bitwrite)?;
-            T::zero().write(bitwrite)?;
+            bitwrite.write_signed(i32::BITS, channel[0])?;
+            bitwrite.write_signed(i32::BITS, 0)?;
             return Ok(());
         }
         _ => {
-            channel[0].write(bitwrite)?;
-            channel[1].write(bitwrite)?;
+            bitwrite.write_signed(i32::BITS, channel[0])?;
+            bitwrite.write_signed(i32::BITS, channel[1])?;
         }
     };
 
-    let mut estimator: KEstimator<T> = KEstimator::new(true);
+    let mut estimator: KEstimator = KEstimator::new(
+        options.max_context,
+        options.k_values,
+        options.periodic_count_scaling,
+    );
+
     // Proceed in raster-scan order.
     for i in 2..total_size {
         let (a, b) = misc::nearest_neighbours(i, width as usize).unwrap();
@@ -109,24 +123,24 @@ where
 
         let h = cmp::max(v1, v2);
         let l = cmp::min(v1, v2);
-        let context = h - l;
+        let context: u32 = (h - l).try_into().unwrap();
         let k = estimator.get_k(context);
         let rice_coder = RiceCoder::new(k);
 
         if p >= l && p <= h {
             encode_intensity(bitwrite, PixelIntensity::InRange)?;
-            let to_encode = p - l;
-            let phase_in_coder = PhaseInCoder::new(Into::<u32>::into(context) + 1);
-            phase_in_coder.encode(bitwrite, to_encode.into())?;
+            let to_encode: u32 = (p - l).try_into().unwrap();
+            let phase_in_coder = PhaseInCoder::new(context + 1);
+            phase_in_coder.encode(bitwrite, to_encode)?;
         } else if p < l {
             encode_intensity(bitwrite, PixelIntensity::BelowRange)?;
-            let to_encode = l - p - T::one();
-            rice_coder.encode(bitwrite, to_encode.into())?;
+            let to_encode: u32 = (l - p - 1).try_into().unwrap();
+            rice_coder.encode(bitwrite, to_encode)?;
             estimator.update(context, to_encode);
         } else {
             encode_intensity(bitwrite, PixelIntensity::AboveRange)?;
-            let to_encode = p - h - T::one();
-            rice_coder.encode(bitwrite, to_encode.into())?;
+            let to_encode: u32 = (p - h - 1).try_into().unwrap();
+            rice_coder.encode(bitwrite, to_encode)?;
             estimator.update(context, to_encode);
         }
     }
@@ -134,18 +148,18 @@ where
 }
 
 /// Decompresses a channel by reading from the given `BitRead`.
-fn decompress_channel<T, R>(
+fn decompress_channel<R>(
     width: u32,
     height: u32,
+    options: CodingOptions,
     bitread: &mut R,
-) -> Result<Vec<T>, DecompressionError>
+) -> Result<Vec<i32>, DecompressionError>
 where
-    T: Intensity,
     R: BitRead,
 {
     // Parse the first two pixels.
-    let pixel1: T = T::read(bitread)?;
-    let pixel2: T = T::read(bitread)?;
+    let pixel1: i32 = bitread.read_signed(i32::BITS)?;
+    let pixel2: i32 = bitread.read_signed(i32::BITS)?;
 
     // Handle edge-case dimensions.
     match (width, height) {
@@ -165,11 +179,15 @@ where
         .try_into()
         .map_err(|_| DecompressionError::InvalidDimensions)?;
 
-    let mut buf = vec![T::zero(); total_size];
+    let mut buf = vec![0; total_size];
     buf[0] = pixel1;
     buf[1] = pixel2;
 
-    let mut estimator: KEstimator<T> = KEstimator::new(true);
+    let mut estimator: KEstimator = KEstimator::new(
+        options.max_context,
+        options.k_values,
+        options.periodic_count_scaling,
+    );
 
     // Proceed in raster-scan order.
     for i in 2..total_size {
@@ -180,7 +198,7 @@ where
 
         let h = cmp::max(v1, v2);
         let l = cmp::min(v1, v2);
-        let context = h - l;
+        let context: u32 = (h - l).try_into().unwrap();
         let k = estimator.get_k(context);
         let rice_coder = RiceCoder::new(k);
 
@@ -188,38 +206,39 @@ where
 
         let pixel_value = match intensity {
             PixelIntensity::InRange => {
-                let phase_in_coder = PhaseInCoder::new(Into::<u32>::into(context) + 1);
-                let p: T = phase_in_coder
+                let phase_in_coder = PhaseInCoder::new(context + 1);
+                let p: i32 = phase_in_coder
                     .decode(bitread)?
                     .try_into()
                     .map_err(|_| DecompressionError::InvalidValue)?;
-                p.checked_add(&l).ok_or(DecompressionError::ValueOverflow)?
+                p.checked_add(l).ok_or(DecompressionError::ValueOverflow)?
             }
             PixelIntensity::BelowRange => {
-                let encoded: T = rice_coder
-                    .decode(bitread)?
+                let encoded: u32 = rice_coder.decode(bitread)?;
+                estimator.update(context, encoded);
+                let encoded: i32 = encoded
                     .try_into()
                     .map_err(|_| DecompressionError::InvalidValue)?;
-                estimator.update(context, encoded);
+
                 // The encoded value is l-p-1.
                 // To get p back, we must compute: l-encoded-1.
-                l.checked_sub(&encoded)
+                l.checked_sub(encoded)
                     .ok_or(DecompressionError::ValueOverflow)?
-                    .checked_sub(&T::one())
+                    .checked_sub(1)
                     .ok_or(DecompressionError::ValueOverflow)?
             }
             PixelIntensity::AboveRange => {
-                let encoded: T = rice_coder
-                    .decode(bitread)?
+                let encoded: u32 = rice_coder.decode(bitread)?;
+                estimator.update(context, encoded);
+                let encoded: i32 = encoded
                     .try_into()
                     .map_err(|_| DecompressionError::InvalidValue)?;
-                estimator.update(context, encoded);
                 // The encoded value is p-h-1.
                 // To get p back, we must compute: encoded + h + 1.
                 encoded
-                    .checked_add(&h)
+                    .checked_add(h)
                     .ok_or(DecompressionError::ValueOverflow)?
-                    .checked_add(&T::one())
+                    .checked_add(1)
                     .ok_or(DecompressionError::ValueOverflow)?
             }
         };
@@ -247,8 +266,16 @@ where
             },
             &mut to,
         )?;
+
         let mut bitwriter: BitWriter<W, BigEndian> = BitWriter::new(to);
-        compress_channel(self.as_raw(), width, height, &mut bitwriter)?;
+        let options = CodingOptions {
+            max_context: T::MAX_CONTEXT,
+            k_values: T::K_VALUES,
+            periodic_count_scaling: T::COUNT_SCALING,
+        };
+        let channel: Vec<i32> = self.as_raw().iter().map(|&x| x.into()).collect();
+
+        compress_channel(&channel, width, height, options, &mut bitwriter)?;
         bitwriter.byte_align()?;
         bitwriter.flush()?;
         Ok(())
@@ -266,9 +293,24 @@ where
         if header.pixel_depth != T::PIXEL_DEPTH {
             return Err(DecompressionError::InvalidPixelDepth);
         }
+
         let mut bitreader: BitReader<R, BigEndian> = BitReader::new(from);
-        let channel = decompress_channel(header.width, header.height, &mut bitreader)?;
-        let image = ImageBuffer::from_raw(header.width, header.height, channel).unwrap();
+        let options = CodingOptions {
+            max_context: T::MAX_CONTEXT,
+            k_values: T::K_VALUES,
+            periodic_count_scaling: T::COUNT_SCALING,
+        };
+        let channel = decompress_channel(header.width, header.height, options, &mut bitreader)?;
+
+        // Channel is Vec<i32>, convert back to T.
+        let mut result: Vec<T> = vec![T::default(); channel.len()];
+        for (i, &value) in channel.iter().enumerate() {
+            result[i] = value
+                .try_into()
+                .map_err(|_| DecompressionError::InvalidValue)?;
+        }
+
+        let image = ImageBuffer::from_raw(header.width, header.height, result).unwrap();
         Ok(image)
     }
 }
@@ -296,23 +338,34 @@ where
         let num_pixels = (width as usize) * (height as usize);
         let pixels = self.as_raw();
 
-        let (mut red, mut green, mut blue) = (
-            vec![T::zero(); num_pixels],
-            vec![T::zero(); num_pixels],
-            vec![T::zero(); num_pixels],
+        let (mut y, mut co, mut cg) = (
+            vec![0; num_pixels],
+            vec![0; num_pixels],
+            vec![0; num_pixels],
         );
 
         for i in 0..num_pixels {
             let current = i * 3;
-            red[i] = pixels[current];
-            green[i] = pixels[current + 1];
-            blue[i] = pixels[current + 2];
+            let (ly, lco, lcg) = rgb_to_ycocg(
+                pixels[current].into(),
+                pixels[current + 1].into(),
+                pixels[current + 2].into(),
+            );
+            y[i] = ly;
+            co[i] = lco;
+            cg[i] = lcg;
         }
 
         let mut bitwriter: BitWriter<W, BigEndian> = BitWriter::new(to);
-        compress_channel(&red, width, height, &mut bitwriter)?;
-        compress_channel(&green, width, height, &mut bitwriter)?;
-        compress_channel(&blue, width, height, &mut bitwriter)?;
+        let options = CodingOptions {
+            max_context: T::MAX_CONTEXT,
+            k_values: T::K_VALUES,
+            periodic_count_scaling: T::COUNT_SCALING,
+        };
+
+        compress_channel(&y, width, height, options, &mut bitwriter)?;
+        compress_channel(&co, width, height, options, &mut bitwriter)?;
+        compress_channel(&cg, width, height, options, &mut bitwriter)?;
         bitwriter.byte_align()?;
         bitwriter.flush()?;
         Ok(())
@@ -332,20 +385,27 @@ where
         }
 
         let mut bitreader: BitReader<R, BigEndian> = BitReader::new(from);
-        let red = decompress_channel(header.width, header.height, &mut bitreader)?;
-        let green = decompress_channel(header.width, header.height, &mut bitreader)?;
-        let blue = decompress_channel(header.width, header.height, &mut bitreader)?;
+        let options = CodingOptions {
+            max_context: T::MAX_CONTEXT,
+            k_values: T::K_VALUES,
+            periodic_count_scaling: T::COUNT_SCALING,
+        };
+
+        let y = decompress_channel(header.width, header.height, options, &mut bitreader)?;
+        let co = decompress_channel(header.width, header.height, options, &mut bitreader)?;
+        let cg = decompress_channel(header.width, header.height, options, &mut bitreader)?;
 
         let num_pixels = (header.width as usize) * (header.height as usize);
         let buf_size = num_pixels
             .checked_mul(Rgb::CHANNEL_COUNT as usize)
             .ok_or(DecompressionError::InvalidDimensions)?;
 
-        let mut buf = vec![T::zero(); buf_size];
+        let mut buf = vec![T::default(); buf_size];
         for i in 0..num_pixels {
-            buf[i * 3] = red[i];
-            buf[i * 3 + 1] = green[i];
-            buf[i * 3 + 2] = blue[i];
+            let (r, g, b) = ycocg_to_rgb(y[i], co[i], cg[i]);
+            buf[i * 3] = r.try_into().map_err(|_| DecompressionError::InvalidValue)?;
+            buf[i * 3 + 1] = g.try_into().map_err(|_| DecompressionError::InvalidValue)?;
+            buf[i * 3 + 2] = b.try_into().map_err(|_| DecompressionError::InvalidValue)?;
         }
         Ok(ImageBuffer::from_raw(header.width, header.height, buf).unwrap())
     }
