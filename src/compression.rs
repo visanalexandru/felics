@@ -1,5 +1,6 @@
 use crate::coding::{phase_in_coding::PhaseInCoder, rice_coding::RiceCoder};
 use bitstream_io::{self, BigEndian, BitRead, BitReader, BitWrite, BitWriter};
+use color_transform::{rgb_to_ycocg, ycocg_to_rgb};
 use error::DecompressionError;
 pub use format::{read_header, write_header, ColorType, Header, PixelDepth};
 use image::{ImageBuffer, Luma, Pixel, Rgb};
@@ -337,7 +338,7 @@ where
         let num_pixels = (width as usize) * (height as usize);
         let pixels = self.as_raw();
 
-        let (mut red, mut green, mut blue) = (
+        let (mut y, mut co, mut cg) = (
             vec![0; num_pixels],
             vec![0; num_pixels],
             vec![0; num_pixels],
@@ -345,9 +346,14 @@ where
 
         for i in 0..num_pixels {
             let current = i * 3;
-            red[i] = pixels[current].into();
-            green[i] = pixels[current + 1].into();
-            blue[i] = pixels[current + 2].into();
+            let (ly, lco, lcg) = rgb_to_ycocg(
+                pixels[current].into(),
+                pixels[current + 1].into(),
+                pixels[current + 2].into(),
+            );
+            y[i] = ly;
+            co[i] = lco;
+            cg[i] = lcg;
         }
 
         let mut bitwriter: BitWriter<W, BigEndian> = BitWriter::new(to);
@@ -357,9 +363,9 @@ where
             periodic_count_scaling: T::COUNT_SCALING,
         };
 
-        compress_channel(&red, width, height, options, &mut bitwriter)?;
-        compress_channel(&green, width, height, options, &mut bitwriter)?;
-        compress_channel(&blue, width, height, options, &mut bitwriter)?;
+        compress_channel(&y, width, height, options, &mut bitwriter)?;
+        compress_channel(&co, width, height, options, &mut bitwriter)?;
+        compress_channel(&cg, width, height, options, &mut bitwriter)?;
         bitwriter.byte_align()?;
         bitwriter.flush()?;
         Ok(())
@@ -385,9 +391,9 @@ where
             periodic_count_scaling: T::COUNT_SCALING,
         };
 
-        let red = decompress_channel(header.width, header.height, options, &mut bitreader)?;
-        let green = decompress_channel(header.width, header.height, options, &mut bitreader)?;
-        let blue = decompress_channel(header.width, header.height, options, &mut bitreader)?;
+        let y = decompress_channel(header.width, header.height, options, &mut bitreader)?;
+        let co = decompress_channel(header.width, header.height, options, &mut bitreader)?;
+        let cg = decompress_channel(header.width, header.height, options, &mut bitreader)?;
 
         let num_pixels = (header.width as usize) * (header.height as usize);
         let buf_size = num_pixels
@@ -396,15 +402,10 @@ where
 
         let mut buf = vec![T::default(); buf_size];
         for i in 0..num_pixels {
-            buf[i * 3] = red[i]
-                .try_into()
-                .map_err(|_| DecompressionError::InvalidValue)?;
-            buf[i * 3 + 1] = green[i]
-                .try_into()
-                .map_err(|_| DecompressionError::InvalidValue)?;
-            buf[i * 3 + 2] = blue[i]
-                .try_into()
-                .map_err(|_| DecompressionError::InvalidValue)?;
+            let (r, g, b) = ycocg_to_rgb(y[i], co[i], cg[i]);
+            buf[i * 3] = r.try_into().map_err(|_| DecompressionError::InvalidValue)?;
+            buf[i * 3 + 1] = g.try_into().map_err(|_| DecompressionError::InvalidValue)?;
+            buf[i * 3 + 2] = b.try_into().map_err(|_| DecompressionError::InvalidValue)?;
         }
         Ok(ImageBuffer::from_raw(header.width, header.height, buf).unwrap())
     }
