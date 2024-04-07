@@ -76,7 +76,7 @@ impl KEstimator {
         let mut best = 0;
 
         for (i, k) in ks_for_context.iter().enumerate() {
-            if *k < smallest {
+            if *k <= smallest {
                 best = i;
                 smallest = *k;
             }
