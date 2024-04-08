@@ -2,7 +2,7 @@ use clap::Parser;
 use felics::compression::CompressDecompress;
 use image::{self, io::Reader, DynamicImage};
 use std::fs::File;
-use std::io;
+use std::io::{self, BufWriter};
 use std::path::PathBuf;
 
 // Use clap to define the argument list.
@@ -25,7 +25,8 @@ where
     T: CompressDecompress,
 {
     let file = File::create(path)?;
-    image.compress(file)
+    let writer = BufWriter::new(file);
+    image.compress(writer)
 }
 
 fn main() {
