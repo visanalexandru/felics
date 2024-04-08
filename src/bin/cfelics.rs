@@ -6,10 +6,16 @@ use std::io;
 use std::path::PathBuf;
 
 // Use clap to define the argument list.
+
 #[derive(Parser, Debug)]
+#[command(about = "Compresses an image file to a felics file", long_about = None)]
+#[command(version)]
 struct Args {
+    /// The input file.
     #[arg(short, long)]
     input: PathBuf,
+
+    /// The output file.
     #[arg(short, long)]
     output: PathBuf,
 }
