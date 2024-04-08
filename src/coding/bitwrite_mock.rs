@@ -41,7 +41,10 @@ impl BitWrite for BitWriterMock {
     }
 
     fn byte_align(&mut self) -> io::Result<()> {
-        todo!();
+        while self.content.len() % 8 != 0 {
+            self.write_bit(false)?;
+        }
+        Ok(())
     }
 
     fn write_signed<S>(&mut self, _bits: u32, _value: S) -> io::Result<()>

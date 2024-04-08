@@ -57,3 +57,93 @@ impl RiceCoder {
         (number >> self.k) + 1 + (self.k as u32)
     }
 }
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::coding::bitwrite_mock::BitWriterMock;
+    use bitstream_io::{BigEndian, BitCounter, BitReader, BitWriter};
+    use rand::seq::SliceRandom;
+    use std::io::Cursor;
+
+    #[test]
+    fn test_rice_encoding() {
+        let mut bitwriter = BitWriterMock::new();
+        RiceCoder::new(4).encode(&mut bitwriter, 7).unwrap();
+        assert_eq!(bitwriter.content(), "01110");
+
+        let mut bitwriter = BitWriterMock::new();
+        RiceCoder::new(0).encode(&mut bitwriter, 12).unwrap();
+        assert_eq!(bitwriter.content(), "1111111111110");
+
+        let mut bitwriter = BitWriterMock::new();
+        RiceCoder::new(3).encode(&mut bitwriter, 10).unwrap();
+        assert_eq!(bitwriter.content(), "10010");
+    }
+
+    #[test]
+    #[should_panic]
+    fn test_rice_panic() {
+        let _ = RiceCoder::new(32);
+    }
+
+    #[test]
+    fn test_rice_decoding() {
+        let mut to = Vec::new();
+        let mut bitwriter = BitWriter::<_, BigEndian>::new(&mut to);
+
+        let (a, b, c) = (RiceCoder::new(4), RiceCoder::new(0), RiceCoder::new(3));
+
+        a.encode(&mut bitwriter, 7).unwrap();
+        b.encode(&mut bitwriter, 12).unwrap();
+        c.encode(&mut bitwriter, 10).unwrap();
+        bitwriter.byte_align().unwrap();
+
+        let mut from = BitReader::<_, BigEndian>::new(Cursor::new(&to));
+
+        assert_eq!(a.decode(&mut from).unwrap(), 7);
+        assert_eq!(b.decode(&mut from).unwrap(), 12);
+        assert_eq!(c.decode(&mut from).unwrap(), 10);
+    }
+
+    #[test]
+    #[ignore]
+    fn test_rice_decoding_extensive() {
+        let mut to = Vec::new();
+        let mut bitwriter = BitWriter::<_, BigEndian>::new(&mut to);
+
+        let mut numbers: Vec<u32> = (0..(u16::MAX as u32 * 2)).collect();
+        numbers.shuffle(&mut rand::thread_rng());
+
+        let k = 8;
+        let coder = RiceCoder::new(k);
+
+        for number in &numbers {
+            coder.encode(&mut bitwriter, *number).unwrap();
+        }
+
+        bitwriter.byte_align().unwrap();
+
+        let mut from = BitReader::<_, BigEndian>::new(Cursor::new(&to));
+        for number in &numbers {
+            let decoded = coder.decode(&mut from).unwrap();
+            assert_eq!(decoded, *number);
+        }
+    }
+
+    // Encode some numbers using multiple k values and check
+    // if the length of the encoding matches the fast
+    // code length method.
+    #[test]
+    fn test_rice_code_length() {
+        for number in 0..3000 {
+            for k in 0..32 {
+                let coder = RiceCoder::new(k);
+                let mut bitcounter = BitCounter::<u32, BigEndian>::new();
+
+                coder.encode(&mut bitcounter, number).unwrap();
+                assert_eq!(bitcounter.written(), coder.code_length(number));
+            }
+        }
+    }
+}
