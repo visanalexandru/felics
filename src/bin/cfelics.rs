@@ -4,6 +4,7 @@ use image::{self, io::Reader, DynamicImage};
 use std::fs::File;
 use std::io::{self, BufWriter};
 use std::path::PathBuf;
+use std::process;
 
 // Use clap to define the argument list.
 
@@ -15,7 +16,7 @@ struct Args {
     #[arg(short, long)]
     input: PathBuf,
 
-    /// The output file.
+    /// The output felics file.
     #[arg(short, long)]
     output: PathBuf,
 }
@@ -36,7 +37,7 @@ fn main() {
         Ok(r) => r,
         Err(e) => {
             println!("Cannot open file: {}", e);
-            return;
+            process::exit(1)
         }
     };
 
@@ -44,7 +45,7 @@ fn main() {
         Ok(d) => d,
         Err(e) => {
             println!("Cannot decode image: {}", e);
-            return;
+            process::exit(1)
         }
     };
 
@@ -67,11 +68,12 @@ fn main() {
         }
         _ => {
             println!("Unsupported image format: {:?}", dynamic_image.color());
-            return;
+            process::exit(1)
         }
     };
 
     if let Err(e) = result {
-        println!("Cannot compress image: {e}")
+        println!("Cannot compress image: {e}");
+        process::exit(1)
     }
 }
