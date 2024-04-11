@@ -2,9 +2,10 @@ import subprocess
 import os
 from time import time
 
-os.mkdir("to_png/")
-os.mkdir("to_webp/")
-os.mkdir("to_felics/")
+output_dirs = ["to_png/", "to_webp/", "to_felics/", "to_qoi/"]
+for output_dir in output_dirs:
+    if not os.path.exists(output_dir):
+        os.mkdir(output_dir)
 
 def to_png(input_file, output_file):
     return ["convert", input_file,  "-quality",  "100",  "to_png/"+ output_file]
@@ -15,8 +16,11 @@ def to_webp(input_file, output_file):
 def to_felics(input_file, output_file):
     return ["cfelics",  "-i",  input_file,  "-o",  "to_felics/"+output_file]
 
-to_formats = [".png", ".webp", ".fel"]
-commands = [to_png, to_webp, to_felics]
+def to_qoi(input_file, output_file):
+    return ["convert", input_file, "to_qoi/"+ output_file]
+
+to_formats = [".png", ".webp", ".fel", ".qoi"]
+commands = [to_png, to_webp, to_felics, to_qoi]
 
 files_to_convert = [x for x in os.listdir() if x.endswith(".jpg")]
 

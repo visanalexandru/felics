@@ -1,4 +1,2 @@
 /target
-/bench/to_felics
-/bench/to_png
-/bench/to_webp
+/bench/to_*
