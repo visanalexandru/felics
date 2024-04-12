@@ -22,7 +22,7 @@ def to_qoi(input_file, output_file):
 to_formats = [".png", ".webp", ".fel", ".qoi"]
 commands = [to_png, to_webp, to_felics, to_qoi]
 
-files_to_convert = [x for x in os.listdir() if x.endswith(".tiff")]
+files_to_convert = [x for x in os.listdir("tiff_files") if x.endswith(".tiff")]
 
 for (to_format, command) in zip(to_formats, commands):
     print(f"Converting all files to: {to_format}")
@@ -33,7 +33,7 @@ for (to_format, command) in zip(to_formats, commands):
         filename, ext = os.path.splitext(input_file)
         output_file = filename + to_format 
 
-        to_call = command(input_file, output_file)
+        to_call = command("tiff_files/"+input_file, output_file)
         print(f"{input_file} -> {output_file}, command: {to_call}")
         subprocess.run(to_call)
 
