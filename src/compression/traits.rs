@@ -1,5 +1,5 @@
 use super::error::DecompressionError;
-use super::format::PixelDepth;
+use super::format::{read_header, Header, PixelDepth};
 use std::io::{self, Read, Write};
 
 /// This trait is implemented by all types that can
@@ -49,8 +49,17 @@ pub trait CompressDecompress {
     where
         W: Write;
 
-    fn decompress<R>(from: R) -> Result<Self, DecompressionError>
+    fn decompress_with_header<R>(from: R, header: &Header) -> Result<Self, DecompressionError>
     where
         Self: Sized,
         R: Read;
+
+    fn decompress<R>(mut from: R) -> Result<Self, DecompressionError>
+    where
+        Self: Sized,
+        R: Read,
+    {
+        let header = read_header(&mut from)?;
+        Self::decompress_with_header(from, &header)
+    }
 }

@@ -1,9 +1,9 @@
 use crate::coding::{phase_in_coding::PhaseInCoder, rice_coding::RiceCoder};
 use bitstream_io::{self, BigEndian, BitRead, BitReader, BitWrite, BitWriter};
 use color_transform::{rgb_to_ycocg, ycocg_to_rgb};
-use error::DecompressionError;
+pub use error::DecompressionError;
 pub use format::{read_header, write_header, ColorType, Header, PixelDepth};
-use image::{ImageBuffer, Luma, Pixel, Rgb};
+use image::{DynamicImage, ImageBuffer, Luma, Pixel, Rgb};
 use parameter_selection::KEstimator;
 use std::cmp;
 use std::io::{self, Read, Write};
@@ -281,12 +281,11 @@ where
         Ok(())
     }
 
-    fn decompress<R>(mut from: R) -> Result<Self, DecompressionError>
+    fn decompress_with_header<R>(from: R, header: &Header) -> Result<Self, DecompressionError>
     where
         Self: Sized,
         R: Read,
     {
-        let header = read_header(&mut from)?;
         if header.color_type != ColorType::Gray {
             return Err(DecompressionError::InvalidColorType);
         }
@@ -371,12 +370,11 @@ where
         Ok(())
     }
 
-    fn decompress<R>(mut from: R) -> Result<Self, DecompressionError>
+    fn decompress_with_header<R>(from: R, header: &Header) -> Result<Self, DecompressionError>
     where
         Self: Sized,
         R: Read,
     {
-        let header = read_header(&mut from)?;
         if header.color_type != ColorType::Rgb {
             return Err(DecompressionError::InvalidColorType);
         }
@@ -409,6 +407,37 @@ where
         }
         Ok(ImageBuffer::from_raw(header.width, header.height, buf).unwrap())
     }
+}
+
+pub fn compress_image<W, T>(to: W, image: T) -> io::Result<()>
+where
+    W: Write,
+    T: CompressDecompress,
+{
+    image.compress(to)
+}
+
+pub fn decompress_image<R>(mut from: R) -> Result<DynamicImage, DecompressionError>
+where
+    R: Read,
+{
+    let header = read_header(&mut from)?;
+
+    let result = match (&header.color_type, &header.pixel_depth) {
+        (ColorType::Gray, PixelDepth::Eight) => {
+            DynamicImage::ImageLuma8(CompressDecompress::decompress_with_header(from, &header)?)
+        }
+        (ColorType::Gray, PixelDepth::Sixteen) => {
+            DynamicImage::ImageLuma16(CompressDecompress::decompress_with_header(from, &header)?)
+        }
+        (ColorType::Rgb, PixelDepth::Eight) => {
+            DynamicImage::ImageRgb8(CompressDecompress::decompress_with_header(from, &header)?)
+        }
+        (ColorType::Rgb, PixelDepth::Sixteen) => {
+            DynamicImage::ImageRgb16(CompressDecompress::decompress_with_header(from, &header)?)
+        }
+    };
+    Ok(result)
 }
 
 #[cfg(test)]
