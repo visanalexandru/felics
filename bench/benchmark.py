@@ -22,7 +22,7 @@ def to_qoi(input_file, output_file):
 to_formats = [".png", ".webp", ".fel", ".qoi"]
 commands = [to_png, to_webp, to_felics, to_qoi]
 
-files_to_convert = [x for x in os.listdir() if x.endswith(".jpg")]
+files_to_convert = [x for x in os.listdir() if x.endswith(".tiff")]
 
 for (to_format, command) in zip(to_formats, commands):
     print(f"Converting all files to: {to_format}")
