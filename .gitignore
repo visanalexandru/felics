@@ -1,2 +1,3 @@
 /target
-/bench/to_*
+/bench/to*
+/bench/from*
