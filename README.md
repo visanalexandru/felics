@@ -14,3 +14,32 @@ To run the tests while ignoring the expensive tests:
 To run all the tests:
 
 `cargo test -- --include-ignored`
+
+
+## Building and installing
+
+To build the project:
+
+`cargo build`
+
+To install `cfelics` and `dfelics`:
+
+`cargo install --path .`
+
+
+## Running the benchmarks
+
+First, you need to install the following dependencies:
+
+- ImageMagick's [convert](https://imagemagick.org/script/download.php)
+- [cwebp](https://developers.google.com/speed/webp/download) and `dwebp`
+- `cfelics` and `dfelics`
+- python3 (this was tested on version 3.10.12)
+
+To run the benchmarks:
+
+```
+cd bench/
+python3 benchmark-big-corpus.py
+```
+
