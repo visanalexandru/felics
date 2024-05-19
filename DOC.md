@@ -2,6 +2,12 @@
 
 ## Introduction
 
+In this paper, we will describe a new lossless image compression format that is very simple yet efficient. We plan to use FELICS [5](Howard & Vitter, 2002) as a method of compressing grayscale images. We will then generalize this method to compress RGB images and add support for both 8-bit and 16-bit pixel depths.
+
+In the end, we should have a specification for our new image format, tools to convert from other image formats to ours and backward, and a library that allows users to compress/decompress images from their code.
+
+## Preliminaries
+
 ### Data compression 
 
 Data compression is the process of reducing the number of bits required to encode information.
@@ -22,6 +28,10 @@ On the internet, they also take up to 65% of most webpages [2](Compression Techn
 There are both lossless and lossy methods of compressing images. Lossy image compression might be unsuitable for a number of tasks like medical imaging [3](Wong et al., 1995), satelite imagery and scientific illustrations and diagrams.
 This paper will focus on a lossless compression scheme.
 
+### What makes images compressible
+
+[TODO]
+
 ### File formats
 
 A file format defines how data inside a file is  arranged. This includes things like how text characters are encoded, or how audio is stored as digital waveforms. An image format is a file format for a digital image.
@@ -32,17 +42,35 @@ Image formats may use lossless or lossy compression.
 For example, the PNG standard specifies that the compression should preserve all information [4](Portable Network Graphics (PNG) Specification (Second Edition), n.d.). JFIF, on the other hand, uses JPEG compression, which can be either lossless or lossy.
 
 
-## A new lossless image compression format
+### FELICS 
 
-In this paper, we will describe a new lossless image compression format that is very simple yet efficient. We plan to use FELICS [5](Howard & Vitter, 2002) as a method of compressing grayscale images. We will then generalize this method to compress RGB images and add support for both 8-bit and 16-bit pixel depths.
-
-In the end, we should have a specification for our new image format, tools to convert from other image formats to ours and backward, and a library that allows users to compress/decompress images from their code.
-
-### FELICS  
-
+#### Description of the algorithm
 FELICS, which stands for "fast and efficient lossless image compression system", works by modeling the distribution of a pixel's intensity value using the values of its two nearest neighbours that have already been visited. 
 
-FELICS proceeds in raster-scan order, so the two nearest neighbours are usually the one above and the one to the left of the current pixel.
+FELICS proceeds by coding pixels their in raster-scan order. This means that FELICS traverses the image line by line, from the left to the right. Therefore, the two nearest neighbours of a pixel are usually the one above and the one to the left of the current pixel. 
+
+![neighbour-figure](./figures/neighbours.png)
+*Figure shows the various possible configurations for the neighbouring pixels (A and B) of a given pixel (X)*
+
+In the context of a grayscale image, each pixel has a single intensity value, $ V $. For images with multiple channels, each pixel may be represented by multiple intensity values. For example, an RGB image has three channels: red, green and blue. We can think of a pixel as a triplet $ (R, G ,B) $, with an intensity value for each channel.
+Since the algorithm only works for grayscale images, a pixel will only have one intensity value. 
+
+To encode a pixel $P$, the algorithm looks at the two neighbouring pixels and their :w
+intensities. The smaller neighbouring value is called $ L $, and the larger value $ H $. Next, we compute $ \Delta = H - L$, the prediction context of $P$. The coding proceeds as follows:
+
+<pre>
+if  L <= P <= H    
+    use one bit to encode IN-RANGE 
+    encode the value P - L in the range [0, Δ] using a truncated binary code 
+if P < L
+    use one bit to encode OUT-OF-RANGE
+    use one bit to encode BELOW-RANGE 
+    encode the value L-P-1 using Golumb-Rice codes 
+if P > H
+    use one bit to encode OUT-OF-RANGE
+    use one bit to encode ABOVE-RANGE 
+    encode the value P-H-1 using Golumb-Rice codes 
+</pre>
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
