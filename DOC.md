@@ -2,7 +2,7 @@
 
 ## Introduction
 
-In this paper, we will describe a new lossless image compression format that is very simple yet efficient. We plan to use FELICS [5](Howard & Vitter, 2002) as a method of compressing grayscale images. We will then generalize this method to compress RGB images and add support for both 8-bit and 16-bit pixel depths.
+In this paper, we will describe a new lossless image compression format that is very simple yet efficient. We plan to use FELICS [6](Howard & Vitter, 2002) as a method of compressing grayscale images. We will then generalize this method to compress RGB images and add support for both 8-bit and 16-bit pixel depths.
 
 In the end, we should have a specification for our new image format, tools to convert from other image formats to ours and backward, and a library that allows users to compress/decompress images from their code.
 
@@ -41,22 +41,26 @@ The image format dictates how pixels are stored in a file. Image data can be sto
 Image formats may use lossless or lossy compression. 
 For example, the PNG standard specifies that the compression should preserve all information [4](Portable Network Graphics (PNG) Specification (Second Edition), n.d.). JFIF, on the other hand, uses JPEG compression, which can be either lossless or lossy.
 
+### Codes 
+
+In information theory, a code refers to a system of mapping symbols or strings of symbols to codewords, where each codeword is a string of bits. For text data, symbols may be individual characters like letters, numbers and punctuation. For image data, symbols could represent individual pixels in an image.
+
+Using codes, we can map any information into a bitstring. The length of the bitstring depends on the quality of the code and the probabilities of the individual symbols [5].
 
 ### FELICS 
 
-#### Description of the algorithm
 FELICS, which stands for "fast and efficient lossless image compression system", works by modeling the distribution of a pixel's intensity value using the values of its two nearest neighbours that have already been visited. 
 
 FELICS proceeds by coding pixels their in raster-scan order. This means that FELICS traverses the image line by line, from the left to the right. Therefore, the two nearest neighbours of a pixel are usually the one above and the one to the left of the current pixel. 
 
 ![neighbour-figure](./figures/neighbours.png)
+
 *Figure shows the various possible configurations for the neighbouring pixels (A and B) of a given pixel (X)*
 
 In the context of a grayscale image, each pixel has a single intensity value, $ V $. For images with multiple channels, each pixel may be represented by multiple intensity values. For example, an RGB image has three channels: red, green and blue. We can think of a pixel as a triplet $ (R, G ,B) $, with an intensity value for each channel.
 Since the algorithm only works for grayscale images, a pixel will only have one intensity value. 
 
-To encode a pixel $P$, the algorithm looks at the two neighbouring pixels and their :w
-intensities. The smaller neighbouring value is called $ L $, and the larger value $ H $. Next, we compute $ \Delta = H - L$, the prediction context of $P$. The coding proceeds as follows:
+To encode a pixel $P$, the algorithm looks at the two neighbouring pixels and their intensities. The smaller neighbouring value is called $ L $, and the larger value $ H $. Next, we compute $ \Delta = H - L$, the prediction context of $P$. The coding proceeds as follows:
 
 <pre>
 if  L <= P <= H    
@@ -65,12 +69,14 @@ if  L <= P <= H
 if P < L
     use one bit to encode OUT-OF-RANGE
     use one bit to encode BELOW-RANGE 
-    encode the value L-P-1 using Golumb-Rice codes 
+    encode the value L-P-1 using Golomb-Rice codes 
 if P > H
     use one bit to encode OUT-OF-RANGE
     use one bit to encode ABOVE-RANGE 
-    encode the value P-H-1 using Golumb-Rice codes 
+    encode the value P-H-1 using Golomb-Rice codes 
 </pre>
+
+The first two pixels in the image are outputed without coding. The steps above are then repeated for every pixel in the image, in raster-scan order.
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
@@ -81,4 +87,6 @@ if P > H
 
 4) Portable Network Graphics (PNG) Specification (Second Edition). (n.d.). https://www.w3.org/TR/2003/REC-PNG-20031110/
 
-5) Howard, P. G., & Vitter, J. S. (n.d.). Fast and efficient lossless image compression. In [Proceedings] DCC '93: Data Compression Conference. [Proceedings] DCC '93: Data Compression Conference. IEEE Comput. Soc. Press. https://doi.org/10.1109/dcc.1993.253114
+5) Salomon, D. (2007). Variable-length codes for data compression. In Springer eBooks. https://doi.org/10.1007/978-1-84628-959-0
+
+6) Howard, P. G., & Vitter, J. S. (n.d.). Fast and efficient lossless image compression. In [Proceedings] DCC '93: Data Compression Conference. [Proceedings] DCC '93: Data Compression Conference. IEEE Comput. Soc. Press. https://doi.org/10.1109/dcc.1993.253114
