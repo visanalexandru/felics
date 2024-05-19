@@ -47,6 +47,8 @@ In information theory, a code refers to a system of mapping symbols or strings o
 
 Using codes, we can map any information into a bitstring. The length of the bitstring depends on the quality of the code and the probabilities of the individual symbols [5].
 
+In this paper, we will use two types of codes: Golomb-Rice codes and Phased-In codes.
+
 ### FELICS 
 
 FELICS, which stands for "fast and efficient lossless image compression system", works by modeling the distribution of a pixel's intensity value using the values of its two nearest neighbours that have already been visited. 
@@ -57,10 +59,10 @@ FELICS proceeds by coding pixels their in raster-scan order. This means that FEL
 
 *Figure shows the various possible configurations for the neighbouring pixels (A and B) of a given pixel (X)*
 
-In the context of a grayscale image, each pixel has a single intensity value, $ V $. For images with multiple channels, each pixel may be represented by multiple intensity values. For example, an RGB image has three channels: red, green and blue. We can think of a pixel as a triplet $ (R, G ,B) $, with an intensity value for each channel.
+In the context of a grayscale image, each pixel has a single intensity value, $V$. For images with multiple channels, each pixel may be represented by multiple intensity values. For example, an RGB image has three channels: red, green and blue. We can think of a pixel as a triplet $(R, G ,B)$, with an intensity value for each channel.
 Since the algorithm only works for grayscale images, a pixel will only have one intensity value. 
 
-To encode a pixel $P$, the algorithm looks at the two neighbouring pixels and their intensities. The smaller neighbouring value is called $ L $, and the larger value $ H $. Next, we compute $ \Delta = H - L$, the prediction context of $P$. The coding proceeds as follows:
+To encode a pixel $P$, the algorithm looks at the two neighbouring pixels and their intensities. The smaller neighbouring value is called $L$, and the larger value $H$. Next, we compute $\Delta = H - L$, the prediction context of $P$. The coding proceeds as follows:
 
 <pre>
 if  L <= P <= H    
