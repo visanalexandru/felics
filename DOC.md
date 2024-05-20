@@ -63,7 +63,7 @@ The next figure shows the golomb bitwords generated for integers in $[0, 14]$, u
 
 Rice codes are a sub-category of Golomb codes in which the constraint $M = 2^K$ is added, so $M$ must be a power of two. Rice codes are more convenient for use on a computer, since we can use binary arithmetic for fast encoding and decoding.
 
-To encode $n$, we first remove the $K$ least significant bits and encode the remaining number in unary. Then, we simply output the $K$ least significant bits.
+To encode an integer, we first remove its $K$ least significant bits and encode the remaining number in unary. Then, we simply output its $K$ least significant bits directly.
 
 ### FELICS 
 
