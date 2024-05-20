@@ -2,9 +2,12 @@
 
 ## Introduction
 
+[TODO]
+
 In this paper, we will describe a new lossless image compression format that is very simple yet efficient. We plan to use FELICS [6](Howard & Vitter, 2002) as a method of compressing grayscale images. We will then generalize this method to compress RGB images and add support for both 8-bit and 16-bit pixel depths.
 
 In the end, we should have a specification for our new image format, tools to convert from other image formats to ours and backward, and a library that allows users to compress/decompress images from their code.
+
 
 ## Preliminaries
 
@@ -46,8 +49,12 @@ For example, the PNG standard specifies that the compression should preserve all
 In information theory, a code refers to a system of mapping symbols or strings of symbols to codewords, where each codeword is a string of bits. For text data, symbols may be individual characters like letters, numbers and punctuation. For image data, symbols could represent individual pixels in an image.
 
 Using codes, we can map any information into a bitstring. The length of the bitstring depends on the quality of the code and the probabilities of the individual symbols [5].
+For example, the ASCII code uses the same number of bits to encode each symbol. If we know that some symbols occur more often, we may use a code that assigns shorter codewords to the common symbols and longer codewords to the rare symbols so that on average, messages use fewer bits. 
 
 In this paper, we will use two types of codes: Golomb-Rice codes and Phased-In codes.
+
+#### Golomb-Rice codes
+
 
 ### FELICS 
 
