@@ -55,6 +55,15 @@ In this paper, we will use two types of codes: Golomb-Rice codes and Phased-In c
 
 #### Golomb-Rice codes
 
+Golomb codes are a type of code specifically suited for integers where larger values have a lower probability of occurence [7]. More specifically, Golomb codes work best when the source alphabet follows a geometric distribution. They have a tunable parameter $M$ that can be adjusted so that the code better matches the specific probability distribution of the integers in our data. 
+
+The next figure shows the golomb bitwords generated for integers in $[0, 14]$, using $M = 4$. The geometric distribution used has $p = 0.4$. 
+
+![](./figures/golomb.png)
+
+Rice codes are a sub-category of Golomb codes in which the constraint $M = 2^K$ is added, so $M$ must be a power of two. Rice codes are more convenient for use on a computer, since we can use binary arithmetic for fast encoding and decoding.
+
+To encode $n$, we first remove the $K$ least significant bits and encode the remaining number in unary. Then, we simply output the $K$ least significant bits.
 
 ### FELICS 
 
@@ -99,3 +108,5 @@ The first two pixels in the image are outputed without coding. The steps above a
 5) Salomon, D. (2007). Variable-length codes for data compression. In Springer eBooks. https://doi.org/10.1007/978-1-84628-959-0
 
 6) Howard, P. G., & Vitter, J. S. (n.d.). Fast and efficient lossless image compression. In [Proceedings] DCC '93: Data Compression Conference. [Proceedings] DCC '93: Data Compression Conference. IEEE Comput. Soc. Press. https://doi.org/10.1109/dcc.1993.253114
+
+7) Golomb Codes. (2018). In Introduction to data compression. https://doi.org/10.1016/c2015-0-06248-7
