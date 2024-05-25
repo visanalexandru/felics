@@ -65,6 +65,37 @@ Rice codes are a sub-category of Golomb codes in which the constraint $M = 2^K$ 
 
 To encode an integer, we first remove its $K$ least significant bits and encode the remaining number in unary. Then, we simply output its $K$ least significant bits directly.
 
+#### Phased-In codes
+
+Unlike Golomb-Rice codes, Phased-In codes were developed to encode data where individual symbols have equal probabilities. The issue with assigning bitwords of length $\lceil log_2n\rceil$ for symbols of an alphabet of size $n$ is that some codewords will not be used. For example, if $n=100$, we may assign each symbol a codeword of size $\lceil log_2n\rceil = 7$, but we will only use 100 out of 128 codewords. 
+
+The solution described in [8] splits the $n$ symbols into two sets. If $2^m<=n < 2^m+1$, the first set will receive codewords of size $m+1$, and the second set codewords of size $m$. We denote them with $A$ and $B$. Their sizes will be computed like so:
+
+$$
+|A| =  2*n-2^{m+1} , |B| =  2^{m+1} - n
+$$
+
+Notice that $n = |A| + |B|$, so the two sets cover the entire alphabet. It's important to note that the average codeword length will be between $m$ and $m+1$ bits, so codewords will be shorter on average, especialy when there are more short codewords.
+
+We will look now look at an example where we want to encode integers in the range $[0, 27)$. There are 27 integers, so $n=27$. We calculate $m$ to be $\lfloor log_227 \rfloor = 4$. Therefore, $|A| = 2*27 - 2^5 = 22$, $|B| = 2^5 - 27 = 5$ 
+Integers in the range $[0, 5)$ will receive codewords of size 4, while integers in the range $[5, 27)$ will receive codewords of size 5.
+
+
+The following table shows the codewords of the integers in the range $[0, 27)$.
+
+| Integer | Codeword | Integer | Codeword | Integer | Codeword | 
+| --- | --- | --- | --- | --- | --- |
+| 0   | 0000 | 10 | 11101 | 20 | 00111
+| 1   | 1000 | 11 | 00010 | 21 | 10110
+| 2   | 0100 | 12 | 00011 | 21 | 10111
+| 3   | 1100 | 13 | 10010 | 23 | 01110
+| 4   | 0010 | 14 | 10011 | 24 | 01111
+| 5   | 10100 | 15 | 01010 | 25 | 11110
+| 6   | 10101 | 16 | 01011 | 26 | 11111
+| 7   | 01100 | 17 | 11010 | 
+| 8   | 01101 | 18 | 11011 |
+| 9   | 11100 | 19 | 00110 |
+
 ### FELICS 
 
 FELICS, which stands for "fast and efficient lossless image compression system", works by modeling the distribution of a pixel's intensity value using the values of its two nearest neighbours that have already been visited. 
@@ -110,3 +141,5 @@ The first two pixels in the image are outputed without coding. The steps above a
 6) Howard, P. G., & Vitter, J. S. (n.d.). Fast and efficient lossless image compression. In [Proceedings] DCC '93: Data Compression Conference. [Proceedings] DCC '93: Data Compression Conference. IEEE Comput. Soc. Press. https://doi.org/10.1109/dcc.1993.253114
 
 7) Golomb Codes. (2018). In Introduction to data compression. https://doi.org/10.1016/c2015-0-06248-7
+
+8) David Solomon, Phased-In codes. https://www.davidsalomon.name/VLCadvertis/phasedin.pdf
