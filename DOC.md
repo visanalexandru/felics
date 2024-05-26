@@ -144,11 +144,15 @@ We can exploit this by mapping the image from the RGB color space into a space i
 We want to achieve losless image compression, so the color transform needs to be lossless too. A good solution is described in [10], which introduces the YCoCg color space.
 The linear operation that maps coordinates in the RGB space to coordinates in the YCoCg space is defined as follows:
 
-$\begin{bmatrix} Y \\ Co \\ Cg \end{bmatrix} = \begin{bmatrix} 1/4 & 1/2 & 1/4 \\ 0 & -1 & 1 \\ 1 & -1 &0 \end{bmatrix} * \begin{bmatrix} R \\ G \\ B \end{bmatrix}$
+```math
+\begin{bmatrix} Y \\ Co \\ Cg \end{bmatrix} = \begin{bmatrix} 1/4 & 1/2 & 1/4 \\ 0 & -1 & 1 \\ 1 & -1 &0 \end{bmatrix} * \begin{bmatrix} R \\ G \\ B \end{bmatrix}
+```
 
 The inverse of this operation is defined as follows:
 
-$\begin{bmatrix} R \\ G \\ B \end{bmatrix} = \begin{bmatrix} 1 & -1/4 & 3/4 \\1 &-1/4&-1/4\\ 1 &3/4&-1/4\end{bmatrix} * \begin{bmatrix} R \\ G \\ B \end{bmatrix}$
+```math
+\begin{bmatrix} R \\ G \\ B \end{bmatrix} = \begin{bmatrix} 1 & -1/4 & 3/4 \\1 &-1/4&-1/4\\ 1 &3/4&-1/4\end{bmatrix} * \begin{bmatrix} R \\ G \\ B \end{bmatrix}
+```
 
 We can also use the lifting tehnique described in [10] to make the transform lossless.
 
