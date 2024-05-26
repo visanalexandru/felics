@@ -127,6 +127,15 @@ if P > H
 
 The first two pixels in the image are outputed without coding. The steps above are then repeated for every pixel in the image, in raster-scan order.
 
+The algorithm assumes that if a pixel $P$ is in the range $[L, H]$, its value follows a uniform distribution. Conversely, if $P$ is out-of-range, its value must follow a geometric distribution. These assumptions are why we use Golomb-Rice and Phased-in codes to encode pixel intensities. 
+
+We can understand why these assumptions where made by analyzing the distribution of intensities of pixels for each context $\Delta$. Intensities are generally distributed as shown in the next figure.
+
+In-Range intensities can be modeled using a uniform distribution without a significant overhead in bitword length, so Phased-In codes are used. Because there is a small crest in the middle, we assign the shorter codewords to the values near the middle of the interval $[L, H]$. The probability of out-of-range intensities falls of sharply the further we move away from the interval $[L, H]$ so it is reasonable to use golomb-rice codes. 
+
+![intensity-distribution-figure](./figures/intensity-distribution.png)
+*The figure was generated using 5 8-bit grayscale images. The images are included in the annex.*
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
