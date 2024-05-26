@@ -4,7 +4,7 @@
 
 [TODO]
 
-In this paper, we will describe a new lossless image compression format that is very simple yet efficient. We plan to use FELICS [6](Howard & Vitter, 2002) as a method of compressing grayscale images. We will then generalize this method to compress RGB images and add support for both 8-bit and 16-bit pixel depths.
+In this paper, we will describe a new lossless image compression format that is very simple yet efficient. We plan to use FELICS [6](Howard & Vitter, 2002) as a method of compressing grayscale images. We will then generalize this method to also ompress RGB images and add support for both 8-bit and 16-bit pixel depths.
 
 In the end, we should have a specification for our new image format, tools to convert from other image formats to ours and backward, and a library that allows users to compress/decompress images from their code.
 
@@ -131,10 +131,26 @@ The algorithm assumes that if a pixel $P$ is in the range $[L, H]$, its value fo
 
 We can understand why these assumptions where made by analyzing the distribution of intensities of pixels for each context $\Delta$. Intensities are generally distributed as shown in the next figure.
 
-In-Range intensities can be modeled using a uniform distribution without a significant overhead in bitword length, so Phased-In codes are used. Because there is a small crest in the middle, we assign the shorter codewords to the values near the middle of the interval $[L, H]$. The probability of out-of-range intensities falls of sharply the further we move away from the interval $[L, H]$ so it is reasonable to use golomb-rice codes. 
+In-Range intensities can be modeled using a uniform distribution without a significant overhead in bitword length, so Phased-In codes are used. Because there is a small crest in the middle, we assign the shorter codewords to the values near the middle of the interval $[L, H]$. The probability of out-of-range intensities falls of sharply the further we move away from the interval $[L, H]$ so it is reasonable to use Golomb-Rice codes. 
 
 ![intensity-distribution-figure](./figures/intensity-distribution.png)
 *The figure was generated using 5 8-bit grayscale images. The images are included in the annex.*
+
+### Reversible color transform
+
+Digital images often store color information using multiple channels. Usually, each pixel holds three color values: red, green and blue, denoting a coordinate in the RGB color space. We can compress an RGB image by applying a grayscale compression algorithm on each channel independently, but this is not efficient for natural images. It has been shown [9] that the RGB color space exhibits a high statistical corelation between the color components.
+We can exploit this by mapping the image from the RGB color space into a space in which the components are uncorrelated. 
+
+We want to achieve losless image compression, so the color transform needs to be lossless too. A good solution is described in [10], which introduces the YCoCg color space.
+The linear operation that maps coordinates in the RGB space to coordinates in the YCoCg space is defined as follows:
+
+$\begin{bmatrix} Y \\ Co \\ Cg \end{bmatrix} = \begin{bmatrix} 1/4 & 1/2 & 1/4 \\ 0 & -1 & 1 \\ 1 & -1 &0 \end{bmatrix} * \begin{bmatrix} R \\ G \\ B \end{bmatrix}$
+
+The inverse of this operation is defined as follows:
+
+$\begin{bmatrix} R \\ G \\ B \end{bmatrix} = \begin{bmatrix} 1 & -1/4 & 3/4 \\1 &-1/4&-1/4\\ 1 &3/4&-1/4\end{bmatrix} * \begin{bmatrix} R \\ G \\ B \end{bmatrix}$
+
+We can also use the lifting tehnique described in [10] to make the transform lossless.
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
@@ -152,3 +168,5 @@ In-Range intensities can be modeled using a uniform distribution without a signi
 7) Golomb Codes. (2018). In Introduction to data compression. https://doi.org/10.1016/c2015-0-06248-7
 
 8) David Solomon, Phased-In codes. https://www.davidsalomon.name/VLCadvertis/phasedin.pdf
+
+9) Cui, K., Boev, A., Alshina, E., & Steinbach, E. (2021). Color image restoration exploiting Inter-Channel correlation with a 3-Stage CNN. IEEE Journal of Selected Topics in Signal Processing, 15(2), 174–189. https://doi.org/10.1109/jstsp.2020.3043148
