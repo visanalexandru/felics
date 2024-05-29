@@ -1,12 +1,12 @@
-# A new lossless image compression format based on FELICS 
+# A new lossless image format based on FELICS 
 
 ## Introduction
 
 [TODO]
 
-In this paper, we will describe a new lossless image compression format that is very simple yet efficient. We plan to use FELICS [6](Howard & Vitter, 2002) as a method of compressing grayscale images. We will then generalize this method to also ompress RGB images and add support for both 8-bit and 16-bit pixel depths.
+In this paper, I will describe a new image format with lossless compression that is very simple yet efficient. My plan is to use FELICS [6](Howard & Vitter, 2002) as a method of compressing grayscale images. I will then generalize this method to also ompress RGB images and add support for both 8-bit and 16-bit pixel depths.
 
-In the end, we should have a specification for our new image format, tools to convert from other image formats to ours and backward, and a library that allows users to compress/decompress images from their code.
+In the end, there should be a specification for the new image format, tools to convert from other image formats to the new format and backward, and a library that allows users to compress/decompress images from their code.
 
 
 ## Preliminaries
@@ -156,6 +156,32 @@ The inverse of this operation is defined as follows:
 
 We can also use the lifting tehnique described in [10] to make the transform lossless.
 
+## My contribution 
+
+Building on the theoretical foundation laid out in the previous chapter, this chapter delves into the technical issue of implementing the new image format. I will describe how these techniques come together to make it all work.  
+
+[TODO: insert summary]
+
+### Choosing the right programming language
+
+Data compression is a usually a computationally intensive task, so we would like to implement our image format using a language that is fast. The C programming language is a good example of a low-level language that provides the means to writing fast compression algorithms because it is compiled ahead of time and allows us to manually manage allocated memory. More control over the memory layout can be beneficial for cache locality[10].  
+A downside of the C programming language is that it's potentially memory unsafe. It allows arbitrary pointer arithmetic and does not have bounds checking. 
+
+The lack of bounds checking when accessing memory presents a significant security risk. This is particularly exploited in the context of data compression, where malicious actors can craft data specifically designed to trigger buffer overflows during the process of encoding or decoding.
+
+For example, a bug in the library "libwebp" allowed an attacker to create a malformed WebP file that contained an invalid Huffman tree [11]. This lead to a heap buffer overlow, making it possible to execute arbitrary code on a vulnerable system.
+
+A better choice is the Rust programming language. Like C, it compiles ahead of time so the compiler can emit optimized code that runs fast. Moreover, the rust compiler refuses to compile any code that contains memory-related bugs. For these reasons, I chose to implement the image format using the Rust programming language.
+
+### Project structure
+
+When implementing an image format, the project is usually split up into two parts: a library that exports important functions used in image compression, and a set of tools that use the library to implement basic functionalities. 
+For example, the open source library to use in applications that create, read, and manipulate PNG image files is called "libpng"[13]. The library is developed alongside many tools like:
+
+- "pnm2png" - Program that is used to convert a "pnm" file to a "png" file.
+- "png2pnm" - Program that is used to convert a "png" file to a "pnm" file.
+- "cvtcolor" - Program that converts images from a format to another given format (for example grayscale to RGB).
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
@@ -174,3 +200,11 @@ We can also use the lifting tehnique described in [10] to make the transform los
 8) David Solomon, Phased-In codes. https://www.davidsalomon.name/VLCadvertis/phasedin.pdf
 
 9) Cui, K., Boev, A., Alshina, E., & Steinbach, E. (2021). Color image restoration exploiting Inter-Channel correlation with a 3-Stage CNN. IEEE Journal of Selected Topics in Signal Processing, 15(2), 174–189. https://doi.org/10.1109/jstsp.2020.3043148
+
+10) Grunwald, D., Zorn, B., & Henderson, R. (1993, June). Improving the cache locality of memory allocation. In Proceedings of the ACM SIGPLAN 1993 conference on Programming language design and implementation (pp. 177-186).
+
+11) Uncovering the Hidden WebP vulnerability: a tale of a CVE with much bigger implications than it originally seemed. (2024, February 6). The Cloudflare Blog. https://blog.cloudflare.com/uncovering-the-hidden-webp-vulnerability-cve-2023-4863
+
+12) Introduction - The Rust Programming language. (n.d.). https://doc.rust-lang.org/book/ch00-00-introduction.html
+
+13) pnggroup. (n.d.). GitHub - pnggroup/libpng: LIBPNG: Portable Network Graphics support, official libpng repository. GitHub. https://github.com/pnggroup/libpng
