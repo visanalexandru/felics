@@ -175,12 +175,21 @@ A better choice is the Rust programming language. Like C, it compiles ahead of t
 
 ### Project structure
 
-When implementing an image format, the project is usually split up into two parts: a library that exports important functions used in image compression, and a set of tools that use the library to implement basic functionalities. 
+When implementing an image format, the project is usually split up into two parts: a library that exports important functions used in reading and writing to and from image files, and a set of tools that use the library to implement basic functionalities. 
 For example, the open source library to use in applications that create, read, and manipulate PNG image files is called "libpng"[13]. The library is developed alongside many tools like:
 
 - "pnm2png" - Program that is used to convert a "pnm" file to a "png" file.
 - "png2pnm" - Program that is used to convert a "png" file to a "pnm" file.
 - "cvtcolor" - Program that converts images from a format to another given format (for example grayscale to RGB).
+
+Examples of functions provided in the "libpng" library are:
+
+- "png_read_png" - For reading the entire image into memory.
+- "png_read_info" - For reading only the file information.
+- "png_write_image" - For writing the image from memory.
+
+
+My project will be structured similarly, the objective being to create a Rust package that contains a library crate and multiple binary crates implementing programs that use the library.
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
