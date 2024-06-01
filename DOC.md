@@ -191,6 +191,27 @@ Examples of functions provided in the "libpng" library are:
 
 My project will be structured similarly, the objective being to create a Rust package that contains a library crate and multiple binary crates implementing programs that use the library.
 
+### The felics library crate
+
+To begin, I have decided that the library should satisfy the following requirements:
+ - The API should be as simple as possible and provide great flexibility.
+- The library should correctly handle both RGB and grayscale image formats.
+- It should also correctly handle 8-bit and 16-bit pixel depths.
+- It should provide a function that compresses a given image from memory to a specified location (be it a file on the disk or a buffer in memory). 
+- It should also provide a function that decompresses a compressed image (from a file on disk or a buffer in memory) and returns the decompressed image.
+- It should allow reading metadata information about the image without actually decompressing it. This includes data like the image's color format, pixel depth, width, and height.
+
+To acheive points 4 and 5, I need to decide what data structure will constitute the image that the users will pass/receive to/from the library API. In other words, I need to define what an "image" is from the library's point of view. For this, I have decided to use the Rust "image" crate [14]. 
+
+The "image" crate was created to provide methods to convert to and from various image formats.  It also defines the "ImageBuffer" structure, which holds the actual raw pixel data. The following figure shows a flowchart of what can be achieved using the "image" crate.
+
+![](./figures/image-crate.drawio.png)
+
+
+The "felics" library will use the ImageBuffer structure in the definitions of the compression and decompression functions. This means that users of the "image" crate can easily use the library's API, without needing to do the work of converting the "ImageBuffer" to our version of the data structure. Compatibility with the "image" crate is also the goal of other Rust compression crates, such as "turbojpeg" [15].
+
+
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
@@ -217,3 +238,7 @@ My project will be structured similarly, the objective being to create a Rust pa
 12) Introduction - The Rust Programming language. (n.d.). https://doc.rust-lang.org/book/ch00-00-introduction.html
 
 13) pnggroup. (n.d.). GitHub - pnggroup/libpng: LIBPNG: Portable Network Graphics support, official libpng repository. GitHub. https://github.com/pnggroup/libpng
+
+14) Crates.io: Rust package Registry. (n.d.). crates.io: Rust Package Registry. https://crates.io/crates/image
+
+15) Crates.io: Rust package Registry. (n.d.-b). crates.io: Rust Package Registry. https://crates.io/crates/turbojpeg
