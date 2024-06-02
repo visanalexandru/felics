@@ -193,6 +193,7 @@ My project will be structured similarly, the objective being to create a Rust pa
 
 ### The felics library crate
 
+#### The API
 To begin, I have decided that the library should satisfy the following requirements:
  - The API should be as simple as possible and provide great flexibility.
 - The library should correctly handle both RGB and grayscale image formats.
@@ -208,7 +209,57 @@ The "image" crate was created to provide methods to convert to and from various 
 ![](./figures/image-crate.drawio.png)
 
 
-The "felics" library will use the ImageBuffer structure in the definitions of the compression and decompression functions. This means that users of the "image" crate can easily use the library's API, without needing to do the work of converting the "ImageBuffer" to our version of the data structure. Compatibility with the "image" crate is also the goal of other Rust image compression crates, such as "turbojpeg" [15]. The "ImageBuffer" is also parametrized by pixel types, so the library can potentially handle every possible combination of pixel format and bit depth.  
+The "felics" library will use the ImageBuffer structure in the definitions of the compression and decompression functions. This means that users of the "image" crate can easily use the library's API, without needing to do the work of converting the "ImageBuffer" to our version of the data structure. Compatibility with the "image" crate is also the goal of other Rust image compression crates, such as "turbojpeg" [15]. 
+
+The "ImageBuffer" is also parametrized by pixel types, so the library can potentially handle every possible combination of pixel format and bit depth. The following block of code illustrates how I implement the "CompressDecompress" trait for the RGB and grayscale image formats.  
+
+```rust
+impl<T> CompressDecompress for ImageBuffer<Luma<T>, Vec<T>>
+where
+    Luma<T>: Pixel<Subpixel = T>,
+    T: Intensity,
+{
+    /// Trait implementation
+}
+
+impl<T> CompressDecompress for ImageBuffer<Rgb<T>, Vec<T>>
+where
+    Rgb<T>: Pixel<Subpixel = T>,
+    T: Intensity,
+{
+    /// Trait implementation
+}
+```
+
+The "Subpixel" type represents the scalar type that is used to store each channel in a pixel. For example, this can be "u8", "u16", "f32" etc. We restrict this type to the "u8" and "u16" types, through our definition of the "Intensity" trait. This means that we will handle only 8-bit and 16-bit pixel depths.
+
+The "CompressDecompress" trait is implemented by all image types that are supported by the felics compression algorithm. It is defined in the following block of code.
+
+```rust
+pub trait CompressDecompress {
+    fn compress<W>(&self, to: W) -> Result<()>
+       where W: Write;
+
+    fn decompress<R>(from: R) -> Result<Self, DecompressionError>
+       where Self: Sized,
+             R: Read; 
+}
+```
+
+Ultimately, the library api is defined in the following block of code:
+
+```rust
+pub fn compress_image<W, T>(to: W, image: T) -> Result<()>
+where
+    W: Write,
+    T: CompressDecompress
+
+pub fn decompress_image<R>(from: R) -> Result<DynamicImage, DecompressionError>
+where
+    R: Read
+```
+
+It is worth mentioning that we return a "DynamicImage" when decompressing an image from a source. This is because we can't know beforehand what the image type will be. The "DynamicImage" type is just an enumerator over all possible image types. The user will use Rust's pattern matching to handle the dynamic image appropriately.
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
