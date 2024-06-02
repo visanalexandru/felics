@@ -208,9 +208,7 @@ The "image" crate was created to provide methods to convert to and from various 
 ![](./figures/image-crate.drawio.png)
 
 
-The "felics" library will use the ImageBuffer structure in the definitions of the compression and decompression functions. This means that users of the "image" crate can easily use the library's API, without needing to do the work of converting the "ImageBuffer" to our version of the data structure. Compatibility with the "image" crate is also the goal of other Rust compression crates, such as "turbojpeg" [15].
-
-
+The "felics" library will use the ImageBuffer structure in the definitions of the compression and decompression functions. This means that users of the "image" crate can easily use the library's API, without needing to do the work of converting the "ImageBuffer" to our version of the data structure. Compatibility with the "image" crate is also the goal of other Rust image compression crates, such as "turbojpeg" [15]. The "ImageBuffer" is also parametrized by pixel types, so the library can potentially handle every possible combination of pixel format and bit depth.  
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
