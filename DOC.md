@@ -257,9 +257,15 @@ where
 pub fn decompress_image<R>(from: R) -> Result<DynamicImage, DecompressionError>
 where
     R: Read
+
+pub fn read_header<T>(from: T) -> Result<Header, DecompressionError>
+where
+T: Read,
 ```
 
 It is worth mentioning that we return a "DynamicImage" when decompressing an image from a source. This is because we can't know beforehand what the image type will be. The "DynamicImage" type is just an enumerator over all possible image types. The user will use Rust's pattern matching to handle the dynamic image appropriately.
+
+The header is a structure that holds metadata information about the image. I will describe it in more detail after I introduce the image format. 
 
 #### Bit operations
 
@@ -308,6 +314,8 @@ where
 }
 ```
 
+#### Compressing grayscale images 
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
@@ -338,3 +346,5 @@ where
 14) Crates.io: Rust package Registry. (n.d.). crates.io: Rust Package Registry. https://crates.io/crates/image
 
 15) Crates.io: Rust package Registry. (n.d.-b). crates.io: Rust Package Registry. https://crates.io/crates/turbojpeg
+
+16) Crates.io: Rust package Registry. (n.d.-c). crates.io: Rust Package Registry. https://crates.io/crates/bitstream-io
