@@ -261,6 +261,53 @@ where
 
 It is worth mentioning that we return a "DynamicImage" when decompressing an image from a source. This is because we can't know beforehand what the image type will be. The "DynamicImage" type is just an enumerator over all possible image types. The user will use Rust's pattern matching to handle the dynamic image appropriately.
 
+#### Bit operations
+
+As we will use Golomb-Rice and Phased-In codes, I need to introduce a method of writing individual bits to a sink and also reading individual bits from a source. Processing individual bits is also required to read and write the IN-RANGE, and OUT-OF-RANGE markers (felics section). Eventually, we will encode our image using a stream of bits.
+
+For this, I have decided to use the "bitstream-io" [16] Rust crate. The "bitstream-io" library is very flexible and can wrap around any stream that implements the Read or Write traits. This means that we can write individual bits to buffers in memory, files on disk, or any other sink that implements the Write trait, and also read individual bits from any source that implements the Read trait.
+
+In the context of writing bits, the library works by buffering a single byte. When pushing a bit, it toggles the corresponding bit in the buffered byte and increments the bit count. If the buffered byte is full after pushing a bit, it will be written to the sink and the bit count reset to 0. Note that it's important to pad the stream of bits so that it becomes byte-aligned before flushing it to the sink. A similar approach is used when reading bits from a source.
+
+I chose to use the big-endian bit order for reading and writing bits. This means that more significant bits are read or written before the lesser significant bits.
+The following code block illustrates how the "bistream-io" library is used to encode the per-pixel range markers.
+
+```rust
+fn encode_range<T>(bitwrite: &mut T, intensity: PixelIntensity) -> io::Result<()>
+where
+    T: BitWrite,
+{
+    match intensity {
+        PixelIntensity::InRange => bitwrite.write_bit(true)?,
+        PixelIntensity::AboveRange => {
+            bitwrite.write_bit(false)?;
+            bitwrite.write_bit(true)?;
+        }
+        PixelIntensity::BelowRange => {
+            bitwrite.write_bit(false)?;
+            bitwrite.write_bit(false)?;
+        }
+    }
+    Ok(())
+}
+
+/// Reads a `PixelIntensity` from the given `BitRead`.
+fn decode_range<T>(bitread: &mut T) -> io::Result<PixelIntensity>
+where
+    T: BitRead,
+{
+    let in_range = bitread.read_bit()?;
+    if in_range {
+        return Ok(PixelIntensity::InRange);
+    }
+    let above = bitread.read_bit()?;
+    if above {
+        return Ok(PixelIntensity::AboveRange);
+    }
+    Ok(PixelIntensity::BelowRange)
+}
+```
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
