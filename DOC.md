@@ -314,7 +314,23 @@ where
 }
 ```
 
-#### Compressing grayscale images 
+#### Compressing a single color-channel
+
+Now that I have described how we can emit individual bits, I will go into detail about compressing a single color channel.
+The compression process will follow the detailed approach outlined in the FELICS chapter. 
+
+Since we're operating on a single channel, we're essentially traversing a 2D matrix of scalar values and emitting bits to encode each value. 
+I have chosen to use the simpler Rice codes over Golomb codes because the latter are slower and only give a marginal improvement over the other, as shown in [6].
+At each step of the algorithm, if the current pixel intensity P falls outside the range [L, H], we must choose a Rice parameter k to encode L-P-1 if P is below the range and P-H-1 otherwise. A good Rice parameter will encode this value with as few bits as possible. It is not possible to enumerate all reasonable Rice parameters and choose the optimal one, because the parameter selection must be done during decoding also. 
+
+The parameter selection method I implemented uses multiple ideas described in [6]:
+- For each context $ \Delta $, I will maintain for each parameter value k, the length of the code that would have been obtained if all values encountered so far in the context were encoded using k. 
+- At each step, we choose the parameter k with the smallest cumulative code length in the current context
+- In case of equality, choose the larger parameter k so that we avoid encoding large intensities with a small coding parameter
+- Halve the cumulative code lengths in a context when the smallest one reaches 1024
+
+Since we work with both 8-bit and 16-bit color channels, it's sensible to use different ranges for the Rice parameters k based on the number of bits used per pixel.  
+For example, we might encode 8-bit values by picking a k value from the set $ \{0, 1, 2 ,3 , 4 ,5, 6, 7\} $. There's no use in choosing a k value greater than 6 because then the performance of the Rice coder is the same as coding the value in its plain binary form.
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
