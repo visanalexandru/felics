@@ -344,9 +344,9 @@ The two following tables show the results for both 8-bit and 16-bit pixel depths
 
 | Possible values for k (16-bit)  |   [0, 14]  |  [0,12] | [0, 10] | [0,9] | [1,11] | [3, 11] | [4, 11] | [5, 11] | [6, 11] |
 |         ---             |    ---     |   ---   | --      | --     |  ---   |   ---  | ----    |   ---   |   ---   |
-|    Uncompressed size    | 9143089    |    *    |       * |      * |      * |      * | *       |   *     |    *    |
+|    Uncompressed size    |  11136568    |    *    |       * |      * |      * |      * | *       |   *     |    *    |
 |    Compressed size in bytes | 7543288  | 7542507 | 7546086 | 7636332 | 7542209 | 7542196 | 7542120 |    7542011 | 7543104 | 
-| Compression ratio (16-bit)  |  1.21208 |  1.21220 | 1.21163 | 1.19731 |  1.21225 | 1.21225 | 1.21227 |  1.21228 | 1.21211 | 
+| Compression ratio (16-bit)  |  1.47635 |  1.47650 | 1.47580 | 1.45836 |  1.47656 | 1.47656 | 1.47658 |  1.47660 | 1.47639 | 
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
