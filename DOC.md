@@ -332,6 +332,22 @@ The parameter selection method I implemented uses multiple ideas described in [6
 Since we work with both 8-bit and 16-bit color channels, it's sensible to use different ranges for the Rice parameters k based on the number of bits used per pixel.  
 For example, we might encode 8-bit values by picking a k value from the set $ \{0, 1, 2 ,3 , 4 ,5, 6, 7\} $. There's no use in choosing a k value greater than 6 because then the performance of the Rice coder is the same as coding the value in its plain binary form.
 
+We can search for the best possible sets for the Rice parameter k by some experimentation. I have created a dataset consisting of 40 8-bit grayscale images and 10 16-bit grayscale images. My idea is to apply the compression algorithm using various sets for the Rice parameter k and select the set that produces the highest compression ratio. 
+The two following tables show the results for both 8-bit and 16-bit pixel depths.
+
+| Possible values for k  (8-bit) |   [0, 5] |  [0,6] | [0, 4] | [0,3] | [0,2] | [1, 5] | [2, 5] |
+|         ---             |    ---   |   ---  | --     | --    |  ---  |   ---  | ----   |
+|    Uncompressed size | 15089704 | * | * | * | * | * | * |
+|    Compressed size in bytes  | 8529509  | 8530013 | 8529804 | 8531913 | 8563203 | 8602668 | 8748943 |
+| Compression ratio |  1.76911  |   1.76901 |1.76905 | 1.76861 | 1.76215 |  1.75407 | 1.72474 
+
+
+| Possible values for k (16-bit)  |   [0, 14]  |  [0,12] | [0, 10] | [0,9] | [1,11] | [3, 11] | [4, 11] | [5, 11] | [6, 11] |
+|         ---             |    ---     |   ---   | --      | --     |  ---   |   ---  | ----    |   ---   |   ---   |
+|    Uncompressed size    | 9143089    |    *    |       * |      * |      * |      * | *       |   *     |    *    |
+|    Compressed size in bytes | 7543288  | 7542507 | 7546086 | 7636332 | 7542209 | 7542196 | 7542120 |    7542011 | 7543104 | 
+| Compression ratio (16-bit)  |  1.21208 |  1.21220 | 1.21163 | 1.19731 |  1.21225 | 1.21225 | 1.21227 |  1.21228 | 1.21211 | 
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
