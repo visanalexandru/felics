@@ -321,10 +321,10 @@ The compression process will follow the detailed approach outlined in the FELICS
 
 Since we're operating on a single channel, we're essentially traversing a 2D matrix of scalar values and emitting bits to encode each value. 
 I have chosen to use the simpler Rice codes over Golomb codes because the latter are slower and only give a marginal improvement over the other, as shown in [6].
-At each step of the algorithm, if the current pixel intensity P falls outside the range [L, H], we must choose a Rice parameter k to encode L-P-1 if P is below the range and P-H-1 otherwise. A good Rice parameter will encode this value with as few bits as possible. It is not possible to enumerate all reasonable Rice parameters and choose the optimal one, because the parameter selection must be done during decoding also. 
+At each step of the algorithm, if the current pixel intensity $ P $ falls outside the range $ [L, H] $, we must choose a Rice parameter k to encode $ L-P-1 $ if $ P $ is below the range and $ P-H-1 $ otherwise. A good Rice parameter will encode this value with as few bits as possible. It is not possible to enumerate all reasonable Rice parameters and choose the optimal one, because the parameter selection must be done during decoding also. 
 
 The parameter selection method I implemented uses multiple ideas described in [6]:
-- For each context $ \Delta $, I will maintain for each parameter value k, the length of the code that would have been obtained if all values encountered so far in the context were encoded using k. 
+- For each context $ \Delta $, I will maintain for each possible parameter value $ k $, the length of the code that would have been obtained if all values encountered so far in the context were encoded using k. 
 - At each step, we choose the parameter k with the smallest cumulative code length in the current context
 - In case of equality, choose the larger parameter k so that we avoid encoding large intensities with a small coding parameter
 - Halve the cumulative code lengths in a context when the smallest one reaches 1024
@@ -347,6 +347,14 @@ The two following tables show the results for both 8-bit and 16-bit pixel depths
 |    Uncompressed size    |  11136568    |    *    |       * |      * |      * |      * | *       |   *     |    *    |
 |    Compressed size in bytes | 7543288  | 7542507 | 7546086 | 7636332 | 7542209 | 7542196 | 7542120 |    7542011 | 7543104 | 
 | Compression ratio (16-bit)  |  1.47635 |  1.47650 | 1.47580 | 1.45836 |  1.47656 | 1.47656 | 1.47658 |  1.47660 | 1.47639 | 
+
+We can observe a couple of things. 
+- For the 8-bit grayscale images, the best compression ratio was achieved using k-values from the range $ [0,5] $. 
+- For the 16-bit grayscale images, the best set of k-values is the range $ [5, 11] $. 
+- The compression ratio of 16-bit images is significantly lower than that of 8-bit images. 
+- For the 8-bit images, having $ k=0 $ be a valid choice leads to better compression overall, while for the 16-bit images, it leads to lower performance. This can be explained by the fact that small values of $ L-P-1 $ or $ P-H-1 $ are less probable when using 16-bit scalar values.
+
+#### The image format
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
