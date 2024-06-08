@@ -265,7 +265,7 @@ T: Read,
 
 It is worth mentioning that we return a "DynamicImage" when decompressing an image from a source. This is because we can't know beforehand what the image type will be. The "DynamicImage" type is just an enumerator over all possible image types. The user will use Rust's pattern matching to handle the dynamic image appropriately.
 
-The header is a structure that holds metadata information about the image. I will describe it in more detail after I introduce the image format. 
+The header is a structure that holds metadata information about the image. I will describe it in more detail when I introduce the image format. 
 
 #### Bit operations
 
@@ -321,7 +321,7 @@ The compression process will follow the detailed approach outlined in the FELICS
 
 Since we're operating on a single channel, we're essentially traversing a 2D matrix of scalar values and emitting bits to encode each value. 
 I have chosen to use the simpler Rice codes over Golomb codes because the latter are slower and only give a marginal improvement over the other, as shown in [6].
-At each step of the algorithm, if the current pixel intensity $ P $ falls outside the range $ [L, H] $, we must choose a Rice parameter k to encode $ L-P-1 $ if $ P $ is below the range and $ P-H-1 $ otherwise. A good Rice parameter will encode this value with as few bits as possible. It is not possible to enumerate all reasonable Rice parameters and choose the optimal one, because the parameter selection must be done during decoding also. 
+At each step of the algorithm, if the current pixel intensity $ P $ falls outside the range $ [L, H] $, we must choose a Rice parameter k to encode $ L-P-1 $ if $ P $ is below the range and $ P-H-1 $ otherwise. A good Rice parameter will encode this value with as few bits as possible. It is not possible to enumerate all reasonable Rice parameters and choose the optimal one, because the parameter selection must be done during decoding also. It's also important to note that the first two pixels of the image are always emitted without coding.  
 
 The parameter selection method I implemented uses multiple ideas described in [6]:
 - For each context $ \Delta $, I will maintain for each possible parameter value $ k $, the length of the code that would have been obtained if all values encountered so far in the context were encoded using k. 
@@ -356,6 +356,20 @@ We can observe a couple of things.
 
 #### The image format
 
+While I've explained how the compression algorithm emits a stream of bits, this bitstream alone is insufficient to reconstruct the original image. To implement the decompression algorithm, I need to establish the image format. The decompression process depends on the bit-depth of the initial image to choose the set of valid values for the Rice parameter k, so it's critical to include metadata information about the image in the compressed representation. Also, the decompression algorithm needs to know the width, height, and color type of the original image.
+
+The following diagram describes the FELICS image format.
+
+![](./figures/format.drawio.png)
+
+The FELICS file header consists of the FELICS file signature [17], the color type of the image, the pixel depth, and the dimensions of the image. 
+The point of the file signature is to provide information to the operating system or any other program about the content of the file. In this case, it tells the operating system that the file contains compressed image data produced by the felics algorithm. The "magic bytes" chosen for the file signature encode the string "FLCS" in ASCII.
+
+The color type can be either 0 for grayscale images or 1 for RGB images. It's encoded using 1 byte so that I can easily extend the supported color types in the future. The pixel depth can be either 0 for 8-bit images or 1 for 16-bit images. The image dimensions are represented by the two 4-byte unsigned integers: Width and Height. These values are written in big-endian. 
+
+As stated before, for each channel we output the first two pixels unencoded. Following the first two pixels is the actual bitstream encoding the rest of the image channel. This bitstream may not be byte-aligned, meaning we might emit a number of bits that is not a multiple of 8 (the number of bits in a byte). 
+If multiple channels are present, we continue emitting bits for the next channel. If no channel remains, we must pad the bitstream with zero bits to become byte-aligned.
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
@@ -388,3 +402,5 @@ We can observe a couple of things.
 15) Crates.io: Rust package Registry. (n.d.-b). crates.io: Rust Package Registry. https://crates.io/crates/turbojpeg
 
 16) Crates.io: Rust package Registry. (n.d.-c). crates.io: Rust Package Registry. https://crates.io/crates/bitstream-io
+
+17) Wikipedia contributors. (2024, June 6). List of file signatures. Wikipedia. https://en.wikipedia.org/wiki/List_of_file_signatures
