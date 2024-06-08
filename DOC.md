@@ -4,7 +4,7 @@
 
 [TODO]
 
-In this paper, I will describe a new image format with lossless compression that is very simple yet efficient. My plan is to use FELICS [6](Howard & Vitter, 2002) as a method of compressing grayscale images. I will then generalize this method to also ompress RGB images and add support for both 8-bit and 16-bit pixel depths.
+In this paper, I will describe a new image format with lossless compression that is very simple yet efficient. My plan is to use FELICS [6](Howard & Vitter, 2002) as a method of compressing grayscale images. I will then generalize this method to also compress RGB images and add support for both 8-bit and 16-bit pixel depths.
 
 In the end, there should be a specification for the new image format, tools to convert from other image formats to the new format and backward, and a library that allows users to compress/decompress images from their code.
 
@@ -164,7 +164,7 @@ Building on the theoretical foundation laid out in the previous chapter, this ch
 
 ### Choosing the right programming language
 
-Data compression is a usually a computationally intensive task, so we would like to implement our image format using a language that is fast. The C programming language is a good example of a low-level language that provides the means to writing fast compression algorithms because it is compiled ahead of time and allows us to manually manage allocated memory. More control over the memory layout can be beneficial for cache locality[10].  
+Data compression is a usually a computationally intensive task, so we would like to implement our image format using a language that is fast. The C programming language is a good example of a low-level language that provides the means to writing fast compression algorithms because it is compiled ahead of time and allows us to manually manage allocated memory. More control over the memory layout can be beneficial for cache locality [10].  
 A downside of the C programming language is that it's potentially memory unsafe. It allows arbitrary pointer arithmetic and does not have bounds checking. 
 
 The lack of bounds checking when accessing memory presents a significant security risk. This is particularly exploited in the context of data compression, where malicious actors can craft data specifically designed to trigger buffer overflows during the process of encoding or decoding.
