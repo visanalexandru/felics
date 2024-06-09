@@ -336,17 +336,19 @@ context  = H - L
 
 k = GetRiceParameterFor(context)
 
-if pixel is IN_RANGE then 
-	EncodePhasedIn(context, pixel)
+if L <= pixel <= H
+    EncodeMarker(IN_RANGE)
+	EncodePhasedIn(context, pixel - L)
 
-if pixel is BELOW_RANGE then
+if pixel < L 
+    EncodeMarker(BELOW_RANGE)
 	EncodeRice(L - pixel - 1, k)
 	UpdateTableForContext(L - pixel - 1, context)
 
-if pixel is ABOVE_RANGE then
+if pixel > R
+    EncodeMarker(ABOVE_RANGE)
 	EncodeRice(pixel - H - 1, k)
 	UpdateTableForContext(pixel - H - 1, context)
-
 ```
 
 Since we work with both 8-bit and 16-bit color channels, it's sensible to use different ranges for the Rice parameters k based on the number of bits used per pixel.  
@@ -403,6 +405,28 @@ When decoding an OUT-OF-RANGE value, we need to know the Rice parameter k that w
 - Base case: The first time we must choose a Rice parameter k is to encode the third pixel in the image. At this time, the table used for determining the optimal Rice parameter for the current context is full of zeros. Therefore, both the compressor and decompressor will choose the largest valid k value (see chapter above).
 
 - The inductive step: Suppose that the induction hypothesis is true. This means that at each previous step, the compressor and the decompressor have chosen the same parameter $ k $. This means that the first $ n $ pixels that were encoded by the compressor were correctly decoded by the decompressor, so the tables for each context $ \Delta $ match. Therefore, at step $ n+1 $ the compressor and the decompressor will choose the same Rice parameter.
+
+The resulting decompression step looks like this:
+```
+context  = H - L
+marker = DecodeRange()
+
+k = GetRiceParameterFor(context)
+
+if marker is IN_RANGE 
+	pixel = DecodePhasedIn(context) + L
+
+if marker is BELOW_RANGE 
+    v = DecodeRice(k)
+	UpdateTableForContext(v, context)
+    pixel = L - v - 1
+
+if marker is ABOVE_RANGE 
+    v = DecodeRice(k)
+	UpdateTableForContext(v, context)
+    pixel = v + H +1
+```
+
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
