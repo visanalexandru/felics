@@ -329,6 +329,26 @@ The parameter selection method I implemented uses multiple ideas described in [6
 - In case of equality, choose the larger parameter k so that we avoid encoding large intensities with a small coding parameter
 - Halve the cumulative code lengths in a context when the smallest one reaches 1024
 
+The following pseudocode illustrates how the parameter selection works at each step:
+
+```
+context  = H - L
+
+k = GetRiceParameterFor(context)
+
+if pixel is IN_RANGE then 
+	EncodePhasedIn(context, pixel)
+
+if pixel is BELOW_RANGE then
+	EncodeRice(L - pixel - 1, k)
+	UpdateTableForContext(L - pixel - 1, context)
+
+if pixel is ABOVE_RANGE then
+	EncodeRice(pixel - H - 1, k)
+	UpdateTableForContext(pixel - H - 1, context)
+
+```
+
 Since we work with both 8-bit and 16-bit color channels, it's sensible to use different ranges for the Rice parameters k based on the number of bits used per pixel.  
 For example, we might encode 8-bit values by picking a k value from the set $ \{0, 1, 2 ,3 , 4 ,5, 6, 7\} $. There's no use in choosing a k value greater than 6 because then the performance of the Rice coder is the same as coding the value in its plain binary form.
 
@@ -369,6 +389,20 @@ The color type can be either 0 for grayscale images or 1 for RGB images. It's en
 
 As stated before, for each channel we output the first two pixels unencoded. Following the first two pixels is the actual bitstream encoding the rest of the image channel. This bitstream may not be byte-aligned, meaning we might emit a number of bits that is not a multiple of 8 (the number of bits in a byte). 
 If multiple channels are present, we continue emitting bits for the next channel. If no channel remains, we must pad the bitstream with zero bits to become byte-aligned.
+
+#### Decompressing a single color-channel
+
+The decompression algorithm is very similar to the compression algorithm. It starts by reading the felics header to work out the image metadata information. Once it knows the image dimensions, the decompression algorithm allocates an appropriately sized buffer to hold the raw image pixel data. 
+
+Then, it reads the values of the first two pixels and writes them to the buffer. Like the compression algorithm, it traverses the buffer in the raster-scan order but sets the value of each pixel by reading from the bitstream. 
+
+When decoding an OUT-OF-RANGE value, we need to know the Rice parameter k that was used when encoding it. Luckily, because the compression algorithm is deterministic, we can simulate the same process of updating the parameter selection tables while we decode the image. We can prove by induction that during decompression we will produce the same k parameters that were used for compression.
+
+- Induction hypothesis: During processing of the first n pixels in the image, both the compressor and the decompressor will choose the same Rice parameters at each step
+
+- Base case: The first time we must choose a Rice parameter k is to encode the third pixel in the image. At this time, the table used for determining the optimal Rice parameter for the current context is full of zeros. Therefore, both the compressor and decompressor will choose the largest valid k value (see chapter above).
+
+- The inductive step: Suppose that the induction hypothesis is true. This means that at each previous step, the compressor and the decompressor have chosen the same parameter $ k $. This means that the first $ n $ pixels that were encoded by the compressor were correctly decoded by the decompressor, so the tables for each context $ \Delta $ match. Therefore, at step $ n+1 $ the compressor and the decompressor will choose the same Rice parameter.
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
