@@ -352,7 +352,7 @@ if pixel > R
 ```
 
 Since we work with both 8-bit and 16-bit color channels, it's sensible to use different ranges for the Rice parameters k based on the number of bits used per pixel.  
-For example, we might encode 8-bit values by picking a k value from the set $ \{0, 1, 2 ,3 , 4 ,5, 6, 7\} $. There's no use in choosing a k value greater than 6 because then the performance of the Rice coder is the same as coding the value in its plain binary form.
+For example, we might encode 8-bit values by picking a k value from the set $\{0, 1, 2 ,3 , 4 ,5, 6, 7\}$. There's no use in choosing a k value greater than 6 because then the performance of the Rice coder is the same as coding the value in its plain binary form.
 
 We can search for the best possible sets for the Rice parameter k by some experimentation. I have created a dataset consisting of 40 8-bit grayscale images and 10 16-bit grayscale images. The images were selected from the USC-SIPI image database[18]. My idea is to apply the compression algorithm using various sets for the Rice parameter k and select the set that produces the highest compression ratio. 
 The two following tables show the results for both 8-bit and 16-bit pixel depths.
