@@ -451,7 +451,7 @@ The following table illustrates how adding a color transform affects the size of
 |    mandril  |                 639373                |                 617524            |
 |    airplane |                 413706                |                 385832            |
 
-The color transform reduces the compressed image size by around 5%, on average.
+On average, the color transform reduces the compressed image size by around 5%.
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
