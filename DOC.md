@@ -321,13 +321,13 @@ The compression process will follow the detailed approach outlined in the FELICS
 
 Since we're operating on a single channel, we're essentially traversing a 2D matrix of scalar values and emitting bits to encode each value. 
 I have chosen to use the simpler Rice codes over Golomb codes because the latter are slower and only give a marginal improvement over the other, as shown in [6].
-At each step of the algorithm, if the current pixel intensity $ P $ falls outside the range $ [L, H] $, we must choose a Rice parameter k to encode $ L-P-1 $ if $ P $ is below the range and $ P-H-1 $ otherwise. A good Rice parameter will encode this value with as few bits as possible. It is not possible to enumerate all reasonable Rice parameters and choose the optimal one, because the parameter selection must be done during decoding also. It's also important to note that the first two pixels of the image are always emitted without coding.  
+At each step of the algorithm, if the current pixel intensity $P$ falls outside the range $[L, H]$, we must choose a Rice parameter $k$ to encode $L-P-1$ if $P$ is below the range and $P-H-1$ otherwise. A good Rice parameter will encode this value with as few bits as possible. It is not possible to enumerate all reasonable Rice parameters and choose the optimal one, because the parameter selection must be done during decoding also. It's also important to note that the first two pixels of the image are always emitted without coding.  
 
 The parameter selection method I implemented uses multiple ideas described in [6]:
-- For each context $ \Delta $, I will maintain for each possible parameter value $ k $, the length of the code that would have been obtained if all values encountered so far in the context were encoded using k. 
-- At each step, we choose the parameter k with the smallest cumulative code length in the current context
-- In case of equality, choose the larger parameter k so that we avoid encoding large intensities with a small coding parameter
-- Halve the cumulative code lengths in a context when the smallest one reaches 1024
+- For each context $\Delta$, I will maintain for each possible parameter value $k$, the length of the code that would have been obtained if all values encountered so far in the context were encoded using $k$. 
+- At each step, we choose the parameter $k$ with the smallest cumulative code length in the current context
+- In case of equality, choose the larger parameter $k$ so that we avoid encoding large intensities with a small coding parameter
+- Halve the cumulative code lengths in a context when the smallest one reaches $1024$
 
 The following pseudocode illustrates how the parameter selection works at each step:
 
@@ -371,10 +371,10 @@ The two following tables show the results for both 8-bit and 16-bit pixel depths
 | Compression ratio (16-bit)  |  1.47635 |  1.47650 | 1.47580 | 1.45836 |  1.47656 | 1.47656 | 1.47658 |  1.47660 | 1.47639 | 
 
 We can observe a couple of things. 
-- For the 8-bit grayscale images, the best compression ratio was achieved using k-values from the range $ [0,5] $. 
-- For the 16-bit grayscale images, the best set of k-values is the range $ [5, 11] $. 
+- For the 8-bit grayscale images, the best compression ratio was achieved using k-values from the range $[0,5]$. 
+- For the 16-bit grayscale images, the best set of k-values is the range $[5, 11]$. 
 - The compression ratio of 16-bit images is significantly lower than that of 8-bit images. 
-- For the 8-bit images, having $ k=0 $ be a valid choice leads to better compression overall, while for the 16-bit images, it leads to lower performance. This can be explained by the fact that small values of $ L-P-1 $ or $ P-H-1 $ are less probable when using 16-bit scalar values.
+- For the 8-bit images, having $k=0$ be a valid choice leads to better compression overall, while for the 16-bit images, it leads to lower performance. This can be explained by the fact that small values of $L-P-1$ or $P-H-1$ are less probable when using 16-bit scalar values.
 
 #### The image format
 
@@ -398,13 +398,13 @@ The decompression algorithm is very similar to the compression algorithm. It sta
 
 Then, it reads the values of the first two pixels and writes them to the buffer. Like the compression algorithm, it traverses the buffer in the raster-scan order but sets the value of each pixel by reading from the bitstream. 
 
-When decoding an OUT-OF-RANGE value, we need to know the Rice parameter k that was used when encoding it. Luckily, because the compression algorithm is deterministic, we can simulate the same process of updating the parameter selection tables while we decode the image. We can prove by induction that during decompression we will produce the same k parameters that were used for compression.
+When decoding an OUT-OF-RANGE value, we need to know the Rice parameter $k$ that was used when encoding it. Luckily, because the compression algorithm is deterministic, we can simulate the same process of updating the parameter selection tables while we decode the image. We can prove by induction that during decompression we will produce the same $k$ parameters that were used for compression.
 
 - Induction hypothesis: During processing of the first n pixels in the image, both the compressor and the decompressor will choose the same Rice parameters at each step
 
-- Base case: The first time we must choose a Rice parameter k is to encode the third pixel in the image. At this time, the table used for determining the optimal Rice parameter for the current context is full of zeros. Therefore, both the compressor and decompressor will choose the largest valid k value (see chapter above).
+- Base case: The first time we must choose a Rice parameter $k$ is to encode the third pixel in the image. At this time, the table used for determining the optimal Rice parameter for the current context is full of zeros. Therefore, both the compressor and decompressor will choose the largest valid k value (see chapter above).
 
-- The inductive step: Suppose that the induction hypothesis is true. This means that at each previous step, the compressor and the decompressor have chosen the same parameter $ k $. This means that the first $ n $ pixels that were encoded by the compressor were correctly decoded by the decompressor, so the tables for each context $ \Delta $ match. Therefore, at step $ n+1 $ the compressor and the decompressor will choose the same Rice parameter.
+- The inductive step: Suppose that the induction hypothesis is true. This means that at each previous step, the compressor and the decompressor have chosen the same parameter $k$. This means that the first $n$ pixels that were encoded by the compressor were correctly decoded by the decompressor, so the tables for each context $\Delta$ match. Therefore, at step $n+1$ the compressor and the decompressor will choose the same Rice parameter.
 
 The resulting decompression step looks like this:
 ```
@@ -434,10 +434,10 @@ The naive way of compressing multiple color channels is to emit bits for each ch
 A superior approach would first apply a color transform over the initial image. 
 I have described the YCoCg color space and how it may improve compression by reducing the correlation between components. I have also mentioned that it fits our needs because it can be losslessly reversed. 
 
-A downside is that if we want to apply this transform over an image of bit depth $ n $, the resulting image will have a bit depth of $ n+1 $ for the Co and Cg channels. This complicates the implementation because in Rust we can only use a couple of scalar types: (u8, u16, i16, u32 etc). 
+A downside is that if we want to apply this transform over an image of bit depth $n$, the resulting image will have a bit depth of $n+1$ for the Co and Cg channels. This complicates the implementation because in Rust we can only use a couple of scalar types: (u8, u16, i16, u32 etc). 
 
 For the sake of simplicity, I first convert the image data to a 32-bit format. In other words, the image content itself isn't altered, just how it is stored in memory. I chose 32 bits because it's the smallest scalar type that can hold 17 bits.
-Each pixel intensity will now be interpreted as a signed 32-bit integer because it's possible to obtain negative values after the color transform. For example, the RGB triplet (231, 27, 30) will be converted to (79, 201, -103). After we apply the transform, we can encode each channel independently. During decompression, we must apply the reverse transform to the channels after we have decoded them. 
+Each pixel intensity will now be interpreted as a signed 32-bit integer because it's possible to obtain negative values after the color transform. For example, the RGB triplet $(231, 27, 30)$ will be converted to $(79, 201, -103)$. After we apply the transform, we can encode each channel independently. During decompression, we must apply the reverse transform to the channels after we have decoded them. 
 
 The following table illustrates how adding a color transform affects the size of the compressed images. The test images were selected from the USC-SIPI  image database.
 
