@@ -354,20 +354,20 @@ if pixel > R
 Since we work with both 8-bit and 16-bit color channels, it's sensible to use different ranges for the Rice parameters k based on the number of bits used per pixel.  
 For example, we might encode 8-bit values by picking a k value from the set $ \{0, 1, 2 ,3 , 4 ,5, 6, 7\} $. There's no use in choosing a k value greater than 6 because then the performance of the Rice coder is the same as coding the value in its plain binary form.
 
-We can search for the best possible sets for the Rice parameter k by some experimentation. I have created a dataset consisting of 40 8-bit grayscale images and 10 16-bit grayscale images. My idea is to apply the compression algorithm using various sets for the Rice parameter k and select the set that produces the highest compression ratio. 
+We can search for the best possible sets for the Rice parameter k by some experimentation. I have created a dataset consisting of 40 8-bit grayscale images and 10 16-bit grayscale images. The images were selected from the USC-SIPI image database[18]. My idea is to apply the compression algorithm using various sets for the Rice parameter k and select the set that produces the highest compression ratio. 
 The two following tables show the results for both 8-bit and 16-bit pixel depths.
 
 | Possible values for k  (8-bit) |   [0, 5] |  [0,6] | [0, 4] | [0,3] | [0,2] | [1, 5] | [2, 5] |
 |         ---             |    ---   |   ---  | --     | --    |  ---  |   ---  | ----   |
-|    Uncompressed size | 15089704 | * | * | * | * | * | * |
-|    Compressed size in bytes  | 8529509  | 8530013 | 8529804 | 8531913 | 8563203 | 8602668 | 8748943 |
+|    Uncompressed size (bytes)| 15089704 | * | * | * | * | * | * |
+|    Compressed size (bytes)  | 8529509  | 8530013 | 8529804 | 8531913 | 8563203 | 8602668 | 8748943 |
 | Compression ratio |  1.76911  |   1.76901 |1.76905 | 1.76861 | 1.76215 |  1.75407 | 1.72474 
 
 
 | Possible values for k (16-bit)  |   [0, 14]  |  [0,12] | [0, 10] | [0,9] | [1,11] | [3, 11] | [4, 11] | [5, 11] | [6, 11] |
 |         ---             |    ---     |   ---   | --      | --     |  ---   |   ---  | ----    |   ---   |   ---   |
-|    Uncompressed size    |  11136568    |    *    |       * |      * |      * |      * | *       |   *     |    *    |
-|    Compressed size in bytes | 7543288  | 7542507 | 7546086 | 7636332 | 7542209 | 7542196 | 7542120 |    7542011 | 7543104 | 
+|    Uncompressed size (bytes)    |  11136568    |    *    |       * |      * |      * |      * | *       |   *     |    *    |
+|    Compressed size (bytes) | 7543288  | 7542507 | 7546086 | 7636332 | 7542209 | 7542196 | 7542120 |    7542011 | 7543104 | 
 | Compression ratio (16-bit)  |  1.47635 |  1.47650 | 1.47580 | 1.45836 |  1.47656 | 1.47656 | 1.47658 |  1.47660 | 1.47639 | 
 
 We can observe a couple of things. 
@@ -439,6 +439,20 @@ A downside is that if we want to apply this transform over an image of bit depth
 For the sake of simplicity, I first convert the image data to a 32-bit format. In other words, the image content itself isn't altered, just how it is stored in memory. I chose 32 bits because it's the smallest scalar type that can hold 17 bits.
 Each pixel intensity will now be interpreted as a signed 32-bit integer because it's possible to obtain negative values after the color transform. For example, the RGB triplet (231, 27, 30) will be converted to (79, 201, -103). After we apply the transform, we can encode each channel independently. During decompression, we must apply the reverse transform to the channels after we have decoded them. 
 
+The following table illustrates how adding a color transform affects the size of the compressed images. The test images were selected from the USC-SIPI  image database.
+
+|   Image     |   Without the color transform (bytes) | With the color transform  (bytes) |
+| ----        |    ----                               | ---                               |
+|    house    |                 109047                |                 105741            | 
+|    peppers  |                 504372                |                 512290            |     
+|    tree     |                 130166                |                 122246            |
+|    lena     |                 118186                |                 110707            |
+|    sailboat |                 544998                |                 545539            |
+|    mandril  |                 639373                |                 617524            |
+|    airplane |                 413706                |                 385832            |
+
+The color transform reduces the compressed image size by around 5%, on average.
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
@@ -473,3 +487,5 @@ Each pixel intensity will now be interpreted as a signed 32-bit integer because 
 16) Crates.io: Rust package Registry. (n.d.-c). crates.io: Rust Package Registry. https://crates.io/crates/bitstream-io
 
 17) Wikipedia contributors. (2024, June 6). List of file signatures. Wikipedia. https://en.wikipedia.org/wiki/List_of_file_signatures
+
+18) SIPI Image Database. (n.d.). https://sipi.usc.edu/database/
