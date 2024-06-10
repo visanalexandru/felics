@@ -453,6 +453,26 @@ The following table illustrates how adding a color transform affects the size of
 
 On average, the color transform reduces the compressed image size by around 5%.
 
+### Additional programs 
+
+This section aims to describe the three additional binary crates that come packaged alongside the "felics" library crate: ```cfelics```, ```dfelics``` and ```vfelics```.
+
+1) ```cfelics``` 
+
+The purpose of the "cfelics" program is to provide a simple way of converting from other image formats to the image format described in the previous chapters. It internally utilizes the "image" Rust library to read and decode an image from a path specified on the disk and to get its underlying ImageBuffer. It then uses the "felics" library to compress the ImageBuffer and write the compressed image to a path specified on the disk. 
+An example usage of the ```cfelics``` program:
+```
+cfelics --input image.jpg --output image.fel
+```
+
+2) ```dfelics```
+
+The ```dfelics``` program was created to be the inverse of the ```cfelics``` program. It reads a "felics" image from a path specified on the disk, decompresses it, then uses the "image" Rust library to encode the pixel data using the given format. It then writes the image to the specified path on the disk. The format is automatically derived from the file extension of the path.
+
+An example usage of the "dfelics" program:
+```
+dfelics --input image.fel --output image.jpg
+```
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
