@@ -427,6 +427,17 @@ if marker is ABOVE_RANGE
     pixel = v + H +1
 ```
 
+#### Handling multiple color channels
+
+The naive way of compressing multiple color channels is to emit bits for each channel independently. This solution is trivial and the implementation requires no explanation, but it doesn't consider the statistical correlation between the red, green, and blue channels (see section about color transforms).
+
+A superior approach would first apply a color transform over the initial image. 
+I have described the YCoCg color space and how it may improve compression by reducing the correlation between components. I have also mentioned that it fits our needs because it can be losslessly reversed. 
+
+A downside is that if we want to apply this transform over an image of bit depth $ n $, the resulting image will have a bit depth of $ n+1 $ for the Co and Cg channels. This complicates the implementation because in Rust we can only use a couple of scalar types: (u8, u16, i16, u32 etc). 
+
+For the sake of simplicity, I first convert the image data to a 32-bit format. In other words, the image content itself isn't altered, just how it is stored in memory. I chose 32 bits because it's the smallest scalar type that can hold 17 bits.
+Each pixel intensity will now be interpreted as a signed 32-bit integer because it's possible to obtain negative values after the color transform. For example, the RGB triplet (231, 27, 30) will be converted to (79, 201, -103). After we apply the transform, we can encode each channel independently. During decompression, we must apply the reverse transform to the channels after we have decoded them. 
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
