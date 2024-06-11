@@ -524,7 +524,8 @@ The following table shows the average compression ratios for each data format fo
 | felics |         2.98         |
 | webp   |         3.99         |
 | png    |         2.67         |
-| qoi    |         3.82         |
+| qoi    |         2.10         |
+| jp2    |         3.82         |
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
