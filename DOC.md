@@ -478,7 +478,7 @@ dfelics --input image.fel --output image.jpg
 
 Vfelics is an image viewer program that allows visualization of "felics" images. It works like ```dfelics```, by reading and decompressing a "felics" image from the disk. It then uses the "show_image" [19] Rust library to create a window and display the image. 
 
-The "show_image" library internally uses "wgpu"[20] for rendering the image using hardware-acceleration.
+The "show_image" library internally uses "wgpu" [20] for rendering the image using hardware-acceleration.
 An example usage of the "vfelics" program:
 ```
 vfelics lena.fel
