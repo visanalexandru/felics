@@ -473,6 +473,22 @@ An example usage of the "dfelics" program:
 ```
 dfelics --input image.fel --output image.jpg
 ```
+
+3) ```vfelics```
+
+Vfelics is an image viewer program that allows visualization of "felics" images. It works like ```dfelics```, by reading and decompressing a "felics" image from the disk. It then uses the "show_image" [19] Rust library to create a window and display the image. 
+
+The "show_image" library internally uses "wgpu"[20] for rendering the image using hardware-acceleration.
+An example usage of the "vfelics" program:
+```
+vfelics lena.fel
+```
+
+This will open a new window that displays the image. The users can them zoom and pan around the image using their mouse.
+
+![](./figures/vfelics.png)
+![](./figures/vfelics-zoom.png)
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
@@ -509,3 +525,7 @@ dfelics --input image.fel --output image.jpg
 17) Wikipedia contributors. (2024, June 6). List of file signatures. Wikipedia. https://en.wikipedia.org/wiki/List_of_file_signatures
 
 18) SIPI Image Database. (n.d.). https://sipi.usc.edu/database/
+
+19) Crates.io: Rust package Registry. (n.d.-d). crates.io: Rust Package Registry. https://crates.io/crates/show-image/0.6.5
+
+20) wgpu: portable graphics library for Rust. (n.d.). https://wgpu.rs/ 
