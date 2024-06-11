@@ -1,4 +1,29 @@
-# A new lossless image format based on FELICS 
+## Table of contents
+- [Table of contents](#table-of-contents)
+- [Introduction](#introduction)
+- [Preliminaries](#preliminaries)
+  - [Data compression](#data-compression)
+  - [Image compression](#image-compression)
+  - [What makes images compressible](#what-makes-images-compressible)
+  - [File formats](#file-formats)
+  - [Codes](#codes)
+    - [Golomb-Rice codes](#golomb-rice-codes)
+    - [Phased-In codes](#phased-in-codes)
+  - [FELICS](#felics)
+  - [Reversible color transform](#reversible-color-transform)
+- [My contribution](#my-contribution)
+  - [Choosing the right programming language](#choosing-the-right-programming-language)
+  - [Project structure](#project-structure)
+  - [The felics library crate](#the-felics-library-crate)
+    - [The API](#the-api)
+    - [Bit operations](#bit-operations)
+    - [Compressing a single color-channel](#compressing-a-single-color-channel)
+    - [The image format](#the-image-format)
+    - [Decompressing a single color-channel](#decompressing-a-single-color-channel)
+    - [Handling multiple color channels](#handling-multiple-color-channels)
+  - [Additional programs](#additional-programs)
+  - [Results](#results)
+- [Bibliography](#bibliography)
 
 ## Introduction
 
@@ -83,18 +108,18 @@ Integers in the range $[0, 5)$ will receive codewords of size 4, while integers 
 
 The following table shows the codewords of the integers in the range $[0, 27)$.
 
-| Integer | Codeword | Integer | Codeword | Integer | Codeword | 
-| --- | --- | --- | --- | --- | --- |
-| 0   | 0000 | 10 | 11101 | 20 | 00111
-| 1   | 1000 | 11 | 00010 | 21 | 10110
-| 2   | 0100 | 12 | 00011 | 21 | 10111
-| 3   | 1100 | 13 | 10010 | 23 | 01110
-| 4   | 0010 | 14 | 10011 | 24 | 01111
-| 5   | 10100 | 15 | 01010 | 25 | 11110
-| 6   | 10101 | 16 | 01011 | 26 | 11111
-| 7   | 01100 | 17 | 11010 | 
-| 8   | 01101 | 18 | 11011 |
-| 9   | 11100 | 19 | 00110 |
+| Integer | Codeword | Integer | Codeword | Integer | Codeword |
+| ------- | -------- | ------- | -------- | ------- | -------- |
+| 0       | 0000     | 10      | 11101    | 20      | 00111    |
+| 1       | 1000     | 11      | 00010    | 21      | 10110    |
+| 2       | 0100     | 12      | 00011    | 21      | 10111    |
+| 3       | 1100     | 13      | 10010    | 23      | 01110    |
+| 4       | 0010     | 14      | 10011    | 24      | 01111    |
+| 5       | 10100    | 15      | 01010    | 25      | 11110    |
+| 6       | 10101    | 16      | 01011    | 26      | 11111    |
+| 7       | 01100    | 17      | 11010    |
+| 8       | 01101    | 18      | 11011    |
+| 9       | 11100    | 19      | 00110    |
 
 ### FELICS 
 
@@ -357,18 +382,18 @@ For example, we might encode 8-bit values by picking a k value from the set $\{0
 We can search for the best possible sets for the Rice parameter k by some experimentation. I have created a dataset consisting of 40 8-bit grayscale images and 10 16-bit grayscale images. The images were selected from the USC-SIPI image database[18]. My idea is to apply the compression algorithm using various sets for the Rice parameter k and select the set that produces the highest compression ratio. 
 The two following tables show the results for both 8-bit and 16-bit pixel depths.
 
-| Possible values for k  (8-bit) |   [0, 5] |  [0,6] | [0, 4] | [0,3] | [0,2] | [1, 5] | [2, 5] |
-|         ---             |    ---   |   ---  | --     | --    |  ---  |   ---  | ----   |
-|    Uncompressed size (bytes)| 15089704 | * | * | * | * | * | * |
-|    Compressed size (bytes)  | 8529509  | 8530013 | 8529804 | 8531913 | 8563203 | 8602668 | 8748943 |
-| Compression ratio |  1.76911  |   1.76901 |1.76905 | 1.76861 | 1.76215 |  1.75407 | 1.72474 
+| Possible values for k  (8-bit) | [0, 5]   | [0,6]   | [0, 4]  | [0,3]   | [0,2]   | [1, 5]  | [2, 5]  |
+| ------------------------------ | -------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| Uncompressed size (bytes)      | 15089704 | *       | *       | *       | *       | *       | *       |
+| Compressed size (bytes)        | 8529509  | 8530013 | 8529804 | 8531913 | 8563203 | 8602668 | 8748943 |
+| Compression ratio              | 1.76911  | 1.76901 | 1.76905 | 1.76861 | 1.76215 | 1.75407 | 1.72474 |
 
 
-| Possible values for k (16-bit)  |   [0, 14]  |  [0,12] | [0, 10] | [0,9] | [1,11] | [3, 11] | [4, 11] | [5, 11] | [6, 11] |
-|         ---             |    ---     |   ---   | --      | --     |  ---   |   ---  | ----    |   ---   |   ---   |
-|    Uncompressed size (bytes)    |  11136568    |    *    |       * |      * |      * |      * | *       |   *     |    *    |
-|    Compressed size (bytes) | 7543288  | 7542507 | 7546086 | 7636332 | 7542209 | 7542196 | 7542120 |    7542011 | 7543104 | 
-| Compression ratio (16-bit)  |  1.47635 |  1.47650 | 1.47580 | 1.45836 |  1.47656 | 1.47656 | 1.47658 |  1.47660 | 1.47639 | 
+| Possible values for k (16-bit) | [0, 14]  | [0,12]  | [0, 10] | [0,9]   | [1,11]  | [3, 11] | [4, 11] | [5, 11] | [6, 11] |
+| ------------------------------ | -------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- | ------- |
+| Uncompressed size (bytes)      | 11136568 | *       | *       | *       | *       | *       | *       | *       | *       |
+| Compressed size (bytes)        | 7543288  | 7542507 | 7546086 | 7636332 | 7542209 | 7542196 | 7542120 | 7542011 | 7543104 |
+| Compression ratio (16-bit)     | 1.47635  | 1.47650 | 1.47580 | 1.45836 | 1.47656 | 1.47656 | 1.47658 | 1.47660 | 1.47639 |
 
 We can observe a couple of things. 
 - For the 8-bit grayscale images, the best compression ratio was achieved using k-values from the range $[0,5]$. 
@@ -441,15 +466,15 @@ Each pixel intensity will now be interpreted as a signed 32-bit integer because 
 
 The following table illustrates how adding a color transform affects the size of the compressed images. The test images were selected from the USC-SIPI  image database.
 
-|   Image     |   Without the color transform (bytes) | With the color transform  (bytes) |
-| ----        |    ----                               | ---                               |
-|    house    |                 109047                |                 105741            | 
-|    peppers  |                 504372                |                 512290            |     
-|    tree     |                 130166                |                 122246            |
-|    lena     |                 118186                |                 110707            |
-|    sailboat |                 544998                |                 545539            |
-|    mandril  |                 639373                |                 617524            |
-|    airplane |                 413706                |                 385832            |
+| Image    | Without the color transform (bytes) | With the color transform  (bytes) |
+| -------- | ----------------------------------- | --------------------------------- |
+| house    | 109047                              | 105741                            |
+| peppers  | 504372                              | 512290                            |
+| tree     | 130166                              | 122246                            |
+| lena     | 118186                              | 110707                            |
+| sailboat | 544998                              | 545539                            |
+| mandril  | 639373                              | 617524                            |
+| airplane | 413706                              | 385832                            |
 
 On average, the color transform reduces the compressed image size by around 5%.
 
@@ -519,13 +544,13 @@ The following figure shows the distribution of the inverse of the compression ra
 
 The following table shows the average compression ratios for each data format for the RGB dataset.
 
-| Format |    Compression ratio |
-|  ---   |       ---            |
-| felics |         2.98         |
-| webp   |         3.99         |
-| png    |         2.67         |
-| qoi    |         2.10         |
-| jp2    |         3.82         |
+| Format | Compression ratio |
+| ------ | ----------------- |
+| felics | 2.98              |
+| webp   | 3.99              |
+| png    | 2.67              |
+| qoi    | 2.10              |
+| jp2    | 3.82              |
 
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
