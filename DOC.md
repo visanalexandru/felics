@@ -489,6 +489,43 @@ This will open a new window that displays the image. The users can them zoom and
 ![](./figures/vfelics.png)
 ![](./figures/vfelics-zoom.png)
 
+### Results
+
+This section will compare the "felics" image format to other popular image formats. We are generally interested in comparing the following aspects:
+
+- The compression ratio (the ratio between the size of the initial image and the size of the compressed image)
+- The speed of the compression
+- The speed of the decompression
+
+For the comparison, I have selected the following 4 image formats: "webp", "png", "qoi" and "jpeg-2000". The plan is to choose an image dataset that contains natural images and compress each image in the dataset using all the mentioned formats while collecting the appropriate metrics.
+
+For the image dataset, I have chosen to use the "lorem-picsum" web service. It offers random images through a web API that allows us to specify the size of the returned image, how much blur to be added, or if we want a grayscale image.
+
+Each image will be first converted to an uncompressed ".tiff" file. Then, we will convert the ".tiff" file to each image format in the benchmark using the following methods:
+
+- For felics, convert the ".tiff" image using: ```cfelics --input image.tiff --output image.fel```
+- For webp: ```cwebp -lossless image.tiff -o image.webp```
+- For qoi: ```convert image.tiff image.qoi```
+- For png: ```convert image.tiff -quality 100 image.png```
+- For jpeg-2000: ```convert image.tiff -quality 0 image.jp2```
+
+The ```convert``` command line tool comes packaged in the "ImageMagick" software suite. For this benchmark, I have used "convert v6.9.11-60". The version of the "cwebp" tool used is "1.3.2".
+
+Similarly, will convert back to the original image from all the tested formats to benchmark the decompression speeds.
+
+The following figure shows the distribution of the inverse of the compression ratio over 1000 RGB images selected from the "lorem-picsum" database. 
+
+![](./figures/density.png)
+
+The following table shows the average compression ratios for each data format for the RGB dataset.
+
+| Format |    Compression ratio |
+|  ---   |       ---            |
+| felics |         2.98         |
+| webp   |         3.99         |
+| png    |         2.67         |
+| qoi    |         3.82         |
+
 ## Bibliography
 1) Sayood, K. (2006). Introduction to data compression (3rd ed.). Elsevier.
 
