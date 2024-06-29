@@ -43,3 +43,8 @@ cd bench/
 python3 benchmark-big-corpus.py
 ```
 
+
+## Documentation 
+
+You can find a detailed description of the algorithm and how it compares to other image formats in [DOC.md](./DOC.md).
+It also includes some preliminaries about data compression, Rice codes and Phased-In codes.
