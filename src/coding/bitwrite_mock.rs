@@ -72,4 +72,18 @@ impl BitWrite for BitWriterMock {
     {
         todo!();
     }
+
+    fn write_out<const BITS: u32, U>(&mut self, _value: U) -> io::Result<()>
+    where
+        U: Numeric,
+    {
+        todo!();
+    }
+
+    fn write_signed_out<const BITS: u32, S>(&mut self, _value: S) -> io::Result<()>
+    where
+        S: SignedNumeric,
+    {
+        todo!();
+    }
 }
