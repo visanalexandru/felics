@@ -22,7 +22,7 @@ To build the project:
 
 `cargo build`
 
-To install `cfelics` and `dfelics` (tools to convert to/from other image formats):
+To install `cfelics`, `dfelics` (tools to convert to/from other image formats) and `vfelics` (the felics image visualizer):
 
 `cargo install --path .`
 
